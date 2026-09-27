@@ -66,24 +66,30 @@
   <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
 </svg>
 
-<nav id="nav">
-  <div class="brand"><span class="logo"><svg viewBox="0 0 24 24"><circle cx="5" cy="7" r="2.6"/><circle cx="12" cy="15" r="2.6"/><circle cx="19" cy="7" r="2.6"/><path d="M6.8 8.9 10.2 13M13.8 13l3.4-4.1"/></svg></span><div><b>HPB Flow</b><small>Tự động hoá trình duyệt</small></div></div>
-  <div class="navgroup">Tự động hoá</div>
-  <a href="#/overview" data-page="overview"><svg class="i"><use href="#i-dashboard"/></svg>Tổng quan</a>
-  <a href="#/flows" data-page="flows"><svg class="i"><use href="#i-workflow"/></svg>Workflow</a>
-  <a href="#/runs" data-page="runs"><svg class="i"><use href="#i-activity"/></svg>Lần chạy</a>
-  <a href="#/library" data-page="library"><svg class="i"><use href="#i-image"/></svg>Thư viện</a>
-  <div class="navgroup">Trình duyệt</div>
-  <a href="#/profiles" data-page="profiles"><svg class="i"><use href="#i-users"/></svg>Hồ sơ</a>
-  <a href="#/proxies" data-page="proxies"><svg class="i"><use href="#i-shield"/></svg>Proxy</a>
-  <a href="#/engines" data-page="engines"><svg class="i"><use href="#i-monitor"/></svg>Engine</a>
-  <div class="navgroup">Kết nối</div>
-  <a href="#/api" data-page="api"><svg class="i"><use href="#i-plug"/></svg>API &amp; AI Agent</a>
+<aside id="rail">
+  <a class="rlogo" href="#/overview" title="HPB Flow"><svg viewBox="0 0 24 24"><circle cx="5" cy="7" r="2.6"/><circle cx="12" cy="15" r="2.6"/><circle cx="19" cy="7" r="2.6"/><path d="M6.8 8.9 10.2 13M13.8 13l3.4-4.1"/></svg></a>
+  <a href="#/overview" data-page="overview"><svg class="i"><use href="#i-dashboard"/></svg><span>Tổng quan</span></a>
+  <a href="#/flows" data-page="flows"><svg class="i"><use href="#i-workflow"/></svg><span>Workflow</span></a>
+  <a href="#/runs" data-page="runs"><svg class="i"><use href="#i-activity"/></svg><span>Lần chạy</span></a>
+  <a href="#/library" data-page="library"><svg class="i"><use href="#i-image"/></svg><span>Thư viện</span></a>
+  <i class="rsep"></i>
+  <a href="#/profiles" data-page="profiles"><svg class="i"><use href="#i-users"/></svg><span>Hồ sơ</span></a>
+  <a href="#/proxies" data-page="proxies"><svg class="i"><use href="#i-shield"/></svg><span>Proxy</span></a>
+  <a href="#/engines" data-page="engines"><svg class="i"><use href="#i-monitor"/></svg><span>Engine</span></a>
+  <a href="#/api" data-page="api"><svg class="i"><use href="#i-plug"/></svg><span>API</span></a>
   <div class="spacer"></div>
-  <a href="#/settings" data-page="settings"><svg class="i"><use href="#i-sliders"/></svg>Cài đặt</a>
-  <div class="navfoot"><span class="live"></span><div><b>Máy chủ đang chạy</b><small>127.0.0.1:4719 · MCP hpb-flow</small></div></div>
-</nav>
-<main id="main"></main>
+  <a href="#/settings" data-page="settings"><svg class="i"><use href="#i-sliders"/></svg><span>Cài đặt</span></a>
+</aside>
+<div id="shell">
+  <header id="top">
+    <nav id="crumbs"></nav>
+    <button class="cmdk" onclick="palette()"><svg class="i"><use href="#i-search"/></svg><span>Tìm workflow, trang, lệnh…</span><kbd>⌘K</kbd></button>
+    <div class="topright"><span class="srv" title="Máy chủ HPB Flow trên máy này"><span class="live"></span>127.0.0.1:4719</span><button class="icon ghost" title="Tải lại trang (⌘R)" onclick="route()"><svg class="i"><use href="#i-refresh"/></svg></button><span class="me" title="HPB Media">HP</span></div>
+  </header>
+  <main id="main"></main>
+</div>
+<div id="tip"></div>
+<dialog id="cmd" onclick="if(event.target===this)this.close()"></dialog>
 <dialog id="viewer" onclick="if(event.target===this)this.close()"></dialog>
 <dialog id="modal" onclick="if(event.target===this)this.close()"></dialog>
 <div id="toast"></div>
