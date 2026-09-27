@@ -86,6 +86,17 @@ export async function getBrowser(name = 'default') {
 
 export async function getContext(name) { return (await getBrowser(name)).contexts()[0]; }
 
+// Đưa tab lên trước và giả lập đang focus: trang như Facebook không vẽ mốc giờ / link bài
+// (chỉ hiện khi rê chuột) nếu tab nằm nền, nên tab nào flow dùng cũng phải qua đây.
+export async function focusPage(page) {
+  await page.bringToFront().catch(() => {});
+  try {
+    const session = await page.context().newCDPSession(page);
+    await session.send('Emulation.setFocusEmulationEnabled', { enabled: true });
+  } catch { /* trình duyệt không hỗ trợ thì thôi */ }
+  return page;
+}
+
 export async function closeBrowser(name) {
   const prof = listProfiles().find(p => p.name === name);
   if (!prof || !(await isUp(prof.port))) return false;
@@ -101,7 +112,7 @@ export async function getWorkPage(name = 'default') {
   const p = workTabs.get(name);
   if (p && !p.isClosed()) return p;
   const ctx = await getContext(name);
-  const page = await ctx.newPage();
+  const page = await focusPage(await ctx.newPage());
   workTabs.set(name, page);
   return page;
 }

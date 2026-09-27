@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { NODES, NODE_DOCS } from './nodes.js';
 import { render } from './template.js';
-import { getContext } from './browser.js';
+import { getContext, focusPage } from './browser.js';
 import { RUNS_DIR } from './paths.js';
 
 const PATH_KEY = /path|file|dir|saved|download/i;
@@ -61,7 +61,7 @@ export async function runFlow(flow, opts = {}) {
   for (const i of flow.inputs || []) if (i.required && (vars[i.name] == null || vars[i.name] === '')) throw new Error(`Thiếu đầu vào bắt buộc: ${i.name}`);
 
   const context = await getContext(opts.profile || 'default');
-  const page = await context.newPage();
+  const page = await focusPage(await context.newPage());
   const runDir = path.join(RUNS_DIR, opts.runId || String(Date.now()));
   fs.mkdirSync(runDir, { recursive: true });
   const nodes = new Map(flow.nodes.map(n => [n.id, n]));

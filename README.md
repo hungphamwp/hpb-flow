@@ -13,6 +13,7 @@ npm start            # http://127.0.0.1:4719
 
 ```bash
 mac/build.sh         # ra dist/HPB Flow.app và dist/HPB-Flow.dmg (Apple Silicon, kèm Node riêng)
+mac/install.sh       # cài bản vừa build vào /Applications trên máy này (thoát app, thay, đăng ký lại, mở lại)
 ```
 
 Mở file .dmg, kéo HPB Flow vào Applications. App tự bật server đi kèm và hiện giao diện trong cửa sổ riêng; thoát app (Cmd+Q) thì tắt server. Vỏ app viết bằng Swift ở `mac/main.swift`.

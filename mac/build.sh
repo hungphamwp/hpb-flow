@@ -54,4 +54,10 @@ STAGE="$ROOT/dist/dmg"; mkdir -p "$STAGE"
 cp -R "$APP" "$STAGE/" && ln -s /Applications "$STAGE/Applications"
 hdiutil create -quiet -volname "HPB Flow" -srcfolder "$STAGE" -ov -format UDZO "$ROOT/dist/HPB-Flow.dmg"
 rm -rf "$STAGE"
+
+# 6. Gỡ đăng ký các bản trong dist/ khỏi LaunchServices: cùng bundle ID với bản ở /Applications,
+#    để lại thì Dock có thể trỏ vào bản dmg tạm (đã xoá) và hiện icon cấm
+LSREG=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+"$LSREG" -u "$APP" 2>/dev/null || true
+"$LSREG" -u "$STAGE/HPB Flow.app" 2>/dev/null || true
 du -sh "$APP" "$ROOT/dist/HPB-Flow.dmg"

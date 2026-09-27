@@ -6,6 +6,7 @@ import path from 'node:path';
 import ExcelJS from 'exceljs';
 import { LIBRARY_DIR, OUTPUT_DIR, resolvePath } from './paths.js';
 import { truthy, evalCondition } from './template.js';
+import { focusPage } from './browser.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const list = v => (Array.isArray(v) ? v : v == null || v === '' ? [] : [v]);
@@ -172,8 +173,9 @@ export const NODES = {
   },
   async loop(p, node, ctx) {
     const items = p.iterate_over != null ? list(typeof p.iterate_over === 'string' && p.iterate_over.trim().startsWith('[') ? JSON.parse(p.iterate_over) : p.iterate_over) : null;
-    const times = items ? items.length : +p.times || 0;
-    const max = Math.min(times || +p.max_iterations || 100, 1000);
+    // Danh sách rỗng hoặc times = 0 thì không chạy vòng nào (trước đây rơi về max_iterations = 100 vòng)
+    const hasTimes = p.times != null && p.times !== '';
+    const max = Math.min(items ? items.length : hasTimes ? +p.times || 0 : +p.max_iterations || 100, +p.max_iterations || 1000, 1000);
     const until = node.params?.until_expression;
     for (let i = 0; i < max; i++) {
       if (i > 0 && until) {
@@ -352,7 +354,7 @@ export const NODES = {
   },
   async clear_cookies(p, n, { page }) { await page.context().clearCookies(); },
   async new_tab(p, n, ctx) {
-    const page = await ctx.context.newPage();
+    const page = await focusPage(await ctx.context.newPage());
     ctx.pages.push(page); ctx.page = page;
     if (p.url) await page.goto(String(p.url), { waitUntil: 'domcontentloaded' });
     if (p.tab_index_var) ctx.vars[p.tab_index_var] = ctx.pages.length - 1;
@@ -361,7 +363,7 @@ export const NODES = {
   async switch_tab(p, n, ctx) {
     const page = p.url_contains ? ctx.pages.find(pg => pg.url().includes(p.url_contains)) : ctx.pages[+p.index];
     if (!page) throw new Error('Không tìm thấy tab');
-    ctx.page = page; await page.bringToFront();
+    ctx.page = page; await focusPage(page);
     return page.url();
   },
 };
