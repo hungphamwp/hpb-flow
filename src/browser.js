@@ -71,7 +71,14 @@ export async function getBrowser(name = 'default') {
     for (let i = 0; i < 80 && !(await isUp(prof.port)); i++) await new Promise(r => setTimeout(r, 250));
     if (!(await isUp(prof.port))) throw new Error('Không mở được Chrome cho profile ' + name);
   }
-  const browser = await chromium.connectOverCDP(`http://127.0.0.1:${prof.port}`);
+  let browser;
+  try { browser = await chromium.connectOverCDP(`http://127.0.0.1:${prof.port}`); }
+  catch (e) {
+    // Trên Mac, đóng hết cửa sổ Chrome thì tiến trình vẫn sống nhưng không còn context → mở một tab trống rồi nối lại
+    if (!/context management is not supported/i.test(e.message)) throw e;
+    await fetch(`http://127.0.0.1:${prof.port}/json/new?about:blank`, { method: 'PUT' });
+    browser = await chromium.connectOverCDP(`http://127.0.0.1:${prof.port}`);
+  }
   browser.on('disconnected', () => { connections.delete(name); workTabs.delete(name); });
   connections.set(name, browser);
   return browser;
