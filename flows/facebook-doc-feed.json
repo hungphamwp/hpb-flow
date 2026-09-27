@@ -1,0 +1,56 @@
+{
+  "name": "facebook-doc-feed",
+  "title": "Đọc bảng tin ra Excel",
+  "group": "Facebook",
+  "description": "Cuộn bảng tin (hoặc một trang/nhóm bất kỳ) và lưu tác giả, nội dung, link bài vào file Excel.",
+  "inputs": [
+    {
+      "name": "url",
+      "label": "Link (để trống = bảng tin)",
+      "type": "text",
+      "default": "https://www.facebook.com/"
+    },
+    {
+      "name": "times",
+      "label": "Số lần cuộn",
+      "type": "number",
+      "default": 10
+    }
+  ],
+  "steps": [
+    {
+      "type": "goto",
+      "url": "{{inputs.url}}"
+    },
+    {
+      "type": "wait_for",
+      "selector": [
+        "div[aria-posinset]",
+        "div[role=article]"
+      ],
+      "timeout": 30000
+    },
+    {
+      "type": "scroll",
+      "times": "{{inputs.times}}",
+      "delay": 2000
+    },
+    {
+      "type": "eval",
+      "label": "Bóc bài viết",
+      "save_as": "posts",
+      "script": "\nconst seen = new Set(); const rows = [];\nconst units = document.querySelectorAll('div[aria-posinset], div[role=feed] > div, div[role=article]:not(div[role=article] div[role=article])');\nfor (const u of units) {\n  const msg = u.querySelector('[data-ad-preview=message], [data-ad-comet-preview=message], div[dir=auto][style*=text-align]');\n  const text = (msg?.innerText || '').trim();\n  if (!text || seen.has(text)) continue; seen.add(text);\n  const author = u.querySelector('h2, h3, h4, strong')?.innerText?.trim() || '';\n  const link = [...u.querySelectorAll('a[href]')].map(a => a.href).find(h => /\\/posts\\/|story_fbid|\\/permalink|\\/videos\\/|\\/reel\\//.test(h)) || '';\n  rows.push({ tac_gia: author, noi_dung: text, link: link.split('?')[0] || link });\n}\nreturn rows;"
+    },
+    {
+      "type": "save_excel",
+      "data": "{{vars.posts}}",
+      "filename": "facebook-feed"
+    },
+    {
+      "type": "return",
+      "value": {
+        "so_bai": "{{vars.posts.length}}"
+      }
+    }
+  ]
+}

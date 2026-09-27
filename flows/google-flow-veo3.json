@@ -1,0 +1,72 @@
+{
+  "name": "google-flow-veo3",
+  "title": "Tạo video Veo 3 (Google Flow)",
+  "group": "Tạo ảnh/video AI",
+  "description": "Mở Google Flow, bạn chọn project + chế độ Từ văn bản sang video, app gõ prompt, chờ video và tải về. Bản thử nghiệm: giao diện Flow thay đổi thường xuyên.",
+  "inputs": [
+    {
+      "name": "prompt",
+      "label": "Mô tả video",
+      "type": "textarea",
+      "required": true
+    },
+    {
+      "name": "filename",
+      "label": "Tên file",
+      "type": "text",
+      "default": "veo3-video"
+    }
+  ],
+  "steps": [
+    {
+      "type": "goto",
+      "url": "https://labs.google/fx/vi/tools/flow"
+    },
+    {
+      "type": "human_pause",
+      "message": "Trong cửa sổ Chrome: mở hoặc tạo project, chọn chế độ 'Từ văn bản sang video', rồi bấm Tiếp tục."
+    },
+    {
+      "type": "count",
+      "selector": "video",
+      "save_as": "before"
+    },
+    {
+      "type": "type",
+      "selector": [
+        "textarea#PINHOLE_TEXT_AREA_ELEMENT_ID",
+        "textarea"
+      ],
+      "text": "{{inputs.prompt}}"
+    },
+    {
+      "type": "press",
+      "key": "Enter"
+    },
+    {
+      "type": "wait_for",
+      "label": "Chờ video (thường 1-5 phút)",
+      "count_gt": {
+        "selector": "video",
+        "value": "{{vars.before}}"
+      },
+      "timeout": 900000
+    },
+    {
+      "type": "sleep",
+      "ms": 8000
+    },
+    {
+      "type": "download",
+      "save_as": "file",
+      "selector": "video >> nth=0",
+      "filename": "{{inputs.filename}}"
+    },
+    {
+      "type": "return",
+      "value": {
+        "file": "{{vars.file}}"
+      }
+    }
+  ]
+}

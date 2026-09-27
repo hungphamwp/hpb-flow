@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GaBee Mac</title>
+<style>
+:root{--bg:#f6f5f1;--panel:#fff;--ink:#1d1d1b;--muted:#6b6a64;--line:#e4e2da;--accent:#e8a317;--accent-ink:#3a2a00;--ok:#1f8a4c;--err:#c0392b;--sel:#fff4d6}
+@media (prefers-color-scheme:dark){:root{--bg:#161614;--panel:#1f1f1c;--ink:#ecebe6;--muted:#9c9a92;--line:#34332e;--accent:#f0b429;--accent-ink:#2a1e00;--sel:#3a3120}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;height:100vh;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:12px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
+header h1{font-size:16px;margin:0;display:flex;align-items:center;gap:8px}
+header h1 span{background:var(--accent);color:var(--accent-ink);border-radius:6px;padding:0 6px;font-size:12px}
+header nav{margin-left:auto;display:flex;gap:6px}
+button{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:6px 12px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+button.danger{color:var(--err)}
+main{flex:1;display:grid;grid-template-columns:260px 1fr 380px;min-height:0}
+aside,section,#runs{overflow:auto;min-height:0}
+aside{border-right:1px solid var(--line);padding:10px}
+.group{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:14px 8px 4px}
+.flow{padding:7px 10px;border-radius:8px;cursor:pointer}
+.flow:hover{background:var(--line)} .flow.active{background:var(--sel)}
+.flow small{display:block;color:var(--muted);font-size:11px}
+section{padding:20px 26px}
+section h2{margin:0 0 4px;font-size:20px}
+.desc{color:var(--muted);margin:0 0 18px}
+label{display:block;font-weight:600;margin:14px 0 4px}
+input[type=text],input[type=number],textarea,select{width:100%;font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+textarea{min-height:110px;resize:vertical}
+.row{display:flex;gap:8px;align-items:center}
+.check{display:flex;gap:8px;align-items:center;font-weight:400;margin-top:14px}
+.actions{margin-top:20px;display:flex;gap:8px;align-items:center}
+#runs{border-left:1px solid var(--line);padding:12px}
+.run{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+.run .top{display:flex;justify-content:space-between;gap:8px;font-weight:600}
+.badge{font-size:11px;border-radius:99px;padding:1px 8px;font-weight:600}
+.running{background:#e7f0ff;color:#1d4ed8}.paused{background:var(--sel);color:#9a6700}.done{background:#e3f6ea;color:var(--ok)}.error{background:#fde8e6;color:var(--err)}
+.log{font:11.5px/1.45 ui-monospace,Menlo,monospace;color:var(--muted);max-height:180px;overflow:auto;white-space:pre-wrap;margin-top:6px}
+.pause{background:var(--sel);border-radius:8px;padding:8px;margin-top:8px}
+.files a{display:block;color:var(--ink);cursor:pointer;text-decoration:underline;font-size:12px;word-break:break-all}
+pre.json{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12px;overflow:auto}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.muted{color:var(--muted)}
+.hint{background:var(--panel);border:1px dashed var(--line);border-radius:10px;padding:12px 14px;color:var(--muted);margin-top:18px}
+@media (max-width:1000px){main{grid-template-columns:1fr}aside,#runs{border:0}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🐝 GaBee <span>Mac</span></h1>
+  <nav>
+    <button onclick="showProfiles()">Profile Chrome</button>
+    <button onclick="showNewFlow()">+ Flow mới (JSON)</button>
+    <button onclick="api('POST','/api/open-output')">Thư mục kết quả</button>
+  </nav>
+</header>
+<main>
+  <aside id="flows"></aside>
+  <section id="detail"></section>
+  <div id="runs"><div class="group">Lượt chạy</div><div id="runlist" class="muted" style="padding:8px">Chưa có lượt chạy nào.</div></div>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function api(method, url, body) {
+  const r = await fetch(url, { method, headers: {'content-type':'application/json'}, body: body ? JSON.stringify(body) : undefined });
+  const d = await r.json(); if (!r.ok) throw new Error(d.error); return d;
+}
+let flows = [], profiles = [], current = null;
+const runs = new Map();
+
+async function loadFlows() {
+  flows = await api('GET', '/api/flows');
+  let html = '', g = null;
+  for (const f of flows) {
+    if (f.group !== g) { g = f.group; html += `<div class="group">${esc(g || 'Khác')}</div>`; }
+    html += `<div class="flow ${current === f.name ? 'active' : ''}" onclick="showFlow('${f.name}')">${esc(f.title || f.name)}<small>${f._source === 'user' ? 'Flow của bạn · ' : ''}${f.step_count} bước</small></div>`;
+  }
+  $('#flows').innerHTML = html;
+}
+
+async function showFlow(name) {
+  current = name; loadFlows();
+  const f = await api('GET', '/api/flows/' + name);
+  profiles = await api('GET', '/api/profiles');
+  const field = i => {
+    const id = 'in_' + i.name, v = i.default ?? '';
+    if (i.type === 'checkbox') return `<label class="check"><input type="checkbox" id="${id}" ${v ? 'checked' : ''}> ${esc(i.label || i.name)}</label>`;
+    let input;
+    if (i.type === 'textarea') input = `<textarea id="${id}">${esc(v)}</textarea>`;
+    else if (i.type === 'file') input = `<div class="row"><textarea id="${id}" style="min-height:44px" placeholder="/Users/.../anh.jpg">${esc(v)}</textarea><button onclick="pick('${id}')">Chọn…</button></div>`;
+    else input = `<input type="${i.type === 'number' ? 'number' : 'text'}" id="${id}" value="${esc(v)}">`;
+    return `<label for="${id}">${esc(i.label || i.name)}${i.required ? ' *' : ''}</label>${input}`;
+  };
+  $('#detail').innerHTML = `
+    <h2>${esc(f.title || f.name)}</h2><p class="desc">${esc(f.description || '')}</p>
+    ${(f.inputs || []).map(field).join('')}
+    <label>Chạy bằng profile</label>
+    <select id="profile">${profiles.map(p => `<option value="${p.name}">${esc(p.name)}${p.note ? ' — ' + esc(p.note) : ''}</option>`).join('')}</select>
+    <div class="actions">
+      <button class="primary" onclick="run()">▶ Chạy</button>
+      <button onclick="toggleJson()">Xem JSON</button>
+      ${f._source === 'user' ? `<button class="danger" onclick="delFlow('${f.name}')">Xoá flow</button>` : ''}
+    </div>
+    <div id="json" hidden><p class="muted">Sửa rồi bấm Lưu để tạo bản của bạn (ghi đè bản có sẵn cùng tên).</p>
+      <textarea id="jsonText" style="min-height:360px;font:12px ui-monospace,Menlo,monospace">${esc(JSON.stringify((({_source, ...x}) => x)(f), null, 2))}</textarea>
+      <div class="actions"><button onclick="saveJson()">Lưu flow</button></div></div>`;
+  window._flow = f;
+}
+function toggleJson() { $('#json').hidden = !$('#json').hidden; }
+async function pick(id) { const { paths } = await api('POST', '/api/choose-file'); if (paths.length) $('#' + id).value = paths.join('\n'); }
+
+async function run() {
+  const f = window._flow, inputs = {};
+  for (const i of f.inputs || []) {
+    const el = $('#in_' + i.name);
+    inputs[i.name] = i.type === 'checkbox' ? el.checked : i.type === 'number' ? Number(el.value) : el.value;
+  }
+  try { const r = await api('POST', '/api/run', { flow: f.name, inputs, profile: $('#profile').value }); upsert(r); }
+  catch (e) { alert(e.message); }
+}
+async function saveJson() {
+  try { await api('POST', '/api/flows', JSON.parse($('#jsonText').value)); await loadFlows(); alert('Đã lưu'); }
+  catch (e) { alert(e.message); }
+}
+async function delFlow(n) { if (confirm('Xoá flow ' + n + '?')) { await api('DELETE', '/api/flows/' + n); current = null; $('#detail').innerHTML = ''; loadFlows(); } }
+
+function showNewFlow() {
+  current = null; loadFlows();
+  const tpl = { name: 'flow-moi', title: 'Flow mới', group: 'Của tôi', description: '', inputs: [{ name: 'url', label: 'Link', type: 'text', required: true }],
+    steps: [{ type: 'goto', url: '{{inputs.url}}' }, { type: 'screenshot', filename: 'chup-man-hinh' }] };
+  $('#detail').innerHTML = `<h2>Flow mới</h2><p class="desc">Dán JSON flow vào đây. Cách nhanh hơn: nhờ Claude Code tạo bằng cổng MCP "gabee-mac".</p>
+    <textarea id="jsonText" style="min-height:420px;font:12px ui-monospace,Menlo,monospace">${esc(JSON.stringify(tpl, null, 2))}</textarea>
+    <div class="actions"><button class="primary" onclick="saveJson()">Lưu flow</button></div>`;
+}
+
+async function showProfiles() {
+  current = null; loadFlows();
+  profiles = await api('GET', '/api/profiles');
+  $('#detail').innerHTML = `<h2>Profile Chrome</h2>
+    <p class="desc">Mỗi profile là một cửa sổ Chrome riêng với phiên đăng nhập riêng. Mở profile rồi tự đăng nhập Facebook, TikTok, ChatGPT, Google… một lần; lần sau flow dùng lại được.</p>
+    ${profiles.map(p => `<div class="card"><div><b>${esc(p.name)}</b> <span class="muted">${esc(p.note || '')}</span></div>
+      <button onclick="api('POST','/api/profiles/${p.name}/open',{})">Mở Chrome</button></div>`).join('')}
+    <label>Tạo profile mới</label>
+    <div class="row"><input type="text" id="pname" placeholder="vd: page-hpb"><input type="text" id="pnote" placeholder="Ghi chú"><button onclick="newProfile()">Tạo</button></div>
+    <div class="hint">Mật khẩu bạn tự gõ trong Chrome; app không lưu hay đọc mật khẩu.</div>`;
+}
+async function newProfile() {
+  try { await api('POST', '/api/profiles', { name: $('#pname').value.trim(), note: $('#pnote').value.trim() }); showProfiles(); }
+  catch (e) { alert(e.message); }
+}
+
+function upsert(r) {
+  runs.set(r.id, r);
+  const list = [...runs.values()].sort((a, b) => b.started - a.started);
+  const label = { running: 'Đang chạy', paused: 'Chờ bạn', done: 'Xong', error: 'Lỗi' };
+  $('#runlist').className = '';
+  $('#runlist').innerHTML = list.map(r => `
+    <div class="run"><div class="top"><span>${esc(r.title)}</span><span class="badge ${r.status}">${label[r.status]}</span></div>
+    ${r.status === 'paused' ? `<div class="pause">${esc(r.pauseMessage)}<div class="actions" style="margin-top:8px">
+      <button class="primary" onclick="api('POST','/api/runs/${r.id}/continue')">Tiếp tục</button>
+      <button class="danger" onclick="api('POST','/api/runs/${r.id}/stop')">Dừng</button></div></div>` : ''}
+    ${r.status === 'running' ? `<div class="actions" style="margin-top:6px"><button class="danger" onclick="api('POST','/api/runs/${r.id}/stop')">Dừng</button></div>` : ''}
+    ${r.error ? `<div style="color:var(--err);margin-top:6px">${esc(r.error)}</div>` : ''}
+    ${r.files?.length ? `<div class="files">${r.files.map(f => `<a onclick='api("POST","/api/open-file",{path:${JSON.stringify(f)}})'>📄 ${esc(f.split('/').pop())}</a>`).join('')}</div>` : ''}
+    <div class="log">${esc(r.logs.slice(-30).join('\n'))}</div></div>`).join('');
+  document.querySelectorAll('.log').forEach(l => l.scrollTop = l.scrollHeight);
+}
+
+(async () => {
+  await loadFlows();
+  (await api('GET', '/api/runs')).forEach(upsert);
+  if (flows[0]) showFlow(flows[0].name);
+  new EventSource('/api/events').onmessage = e => upsert(JSON.parse(e.data));
+})();
+</script>
+</body>
+</html>

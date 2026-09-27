@@ -1,0 +1,48 @@
+{
+  "name": "tiktok-info-video",
+  "title": "Lấy thông tin video TikTok",
+  "group": "TikTok",
+  "description": "Lấy lượt xem, like, comment, share, lưu, mô tả… của một hoặc nhiều video (mỗi dòng một link) ra Excel.",
+  "inputs": [
+    {
+      "name": "urls",
+      "label": "Link video (mỗi dòng một link)",
+      "type": "textarea",
+      "required": true
+    }
+  ],
+  "steps": [
+    {
+      "type": "for_each",
+      "items": "{{inputs.urls}}",
+      "save_as": "rows",
+      "collect": "{{vars.info}}",
+      "steps": [
+        {
+          "type": "goto",
+          "url": "{{item}}"
+        },
+        {
+          "type": "wait_for",
+          "selector": "#__UNIVERSAL_DATA_FOR_REHYDRATION__",
+          "timeout": 30000,
+          "optional": true
+        },
+        {
+          "type": "eval",
+          "save_as": "info",
+          "script": "\nconst el = document.getElementById('__UNIVERSAL_DATA_FOR_REHYDRATION__');\nif (!el) return { url: location.href, loi: 'Không đọc được dữ liệu trang' };\nconst d = JSON.parse(el.textContent).__DEFAULT_SCOPE__?.['webapp.video-detail']?.itemInfo?.itemStruct;\nif (!d) return { url: location.href, loi: 'Không có dữ liệu video (video riêng tư hoặc bị chặn)' };\nconst s = d.statsV2 || d.stats || {};\nreturn { url: location.href, tac_gia: d.author?.uniqueId, ten: d.author?.nickname, mo_ta: d.desc,\n  ngay_dang: new Date(d.createTime * 1000).toLocaleString('vi-VN'), thoi_luong_giay: d.video?.duration,\n  luot_xem: Number(s.playCount), like: Number(s.diggCount), comment: Number(s.commentCount),\n  share: Number(s.shareCount), luu: Number(s.collectCount), nhac: d.music?.title };"
+        }
+      ]
+    },
+    {
+      "type": "save_excel",
+      "data": "{{vars.rows}}",
+      "filename": "tiktok-video"
+    },
+    {
+      "type": "return",
+      "value": "{{vars.rows}}"
+    }
+  ]
+}

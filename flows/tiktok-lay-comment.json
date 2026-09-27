@@ -1,0 +1,49 @@
+{
+  "name": "tiktok-lay-comment",
+  "title": "Lấy comment video TikTok",
+  "group": "TikTok",
+  "description": "Mở video, cuộn khung bình luận và lưu toàn bộ comment cấp 1 ra Excel (đọc từ dữ liệu TikTok trả về, không bóc giao diện).",
+  "inputs": [
+    {
+      "name": "video_url",
+      "label": "Link video TikTok",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "max",
+      "label": "Tối đa bao nhiêu comment",
+      "type": "number",
+      "default": 300
+    }
+  ],
+  "steps": [
+    {
+      "type": "collect_responses",
+      "save_as": "comments",
+      "url": "{{inputs.video_url}}",
+      "url_includes": "/api/comment/list/",
+      "max": "{{inputs.max}}",
+      "times": 80,
+      "delay": 1500,
+      "trigger_selector": [
+        "[data-e2e=comment-icon]",
+        "button[aria-label*='comment' i]",
+        "button[aria-label*='bình luận' i]"
+      ],
+      "scroll_selector": "[data-e2e=comment-level-1], [class*=CommentObjectWrapper], [class*=CommentItemContainer]",
+      "pick": "return (json.comments || []).map(c => ({ username: c.user?.unique_id, ten: c.user?.nickname, comment: c.text, like: c.digg_count, so_tra_loi: c.reply_comment_total, thoi_gian: new Date(c.create_time * 1000).toLocaleString('vi-VN'), cid: c.cid }));"
+    },
+    {
+      "type": "save_excel",
+      "data": "{{vars.comments}}",
+      "filename": "tiktok-comment"
+    },
+    {
+      "type": "return",
+      "value": {
+        "so_comment": "{{vars.comments.length}}"
+      }
+    }
+  ]
+}
