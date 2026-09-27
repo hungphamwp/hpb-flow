@@ -2,11 +2,11 @@ import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
-import { APP_DIR, OUTPUT_DIR, LIBRARY_DIR, RUNS_DIR, PROFILES_DIR, PORT } from './paths.js';
+import { randomUUID, createHmac, timingSafeEqual } from 'node:crypto';
+import { APP_DIR, OUTPUT_DIR, LIBRARY_DIR, RUNS_DIR, PROFILES_DIR, PORT, HOST } from './paths.js';
 import { listFlows, getFlow, saveFlow, deleteFlow, summarize } from './flows.js';
 import { runFlow, runNodeOnPage, validateFlow, NODE_DOCS } from './engine.js';
-import { listProfiles, profileStatus, createProfile, updateProfile, deleteProfile, getWorkPage, closeBrowser, getBrowser } from './browser.js';
+import { listProfiles, profileStatus, createProfile, updateProfile, deleteProfile, getWorkPage, closeBrowser, getBrowser, CHROME } from './browser.js';
 import { FLOW_GUIDE } from './docs.js';
 import { getSettings, saveSettings, rotateApiKey } from './settings.js';
 import { listAgents, setAgent } from './agents.js';
@@ -14,6 +14,34 @@ import { mountApi, aiModels } from './api_v1.js';
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
+
+// ---- đăng nhập: chỉ bật khi đặt HPBFLOW_PASSWORD (bản chạy trên VPS). /api/v1 và /v1 đã có khoá API riêng.
+const PASSWORD = process.env.HPBFLOW_PASSWORD || '';
+if (PASSWORD) {
+  const token = createHmac('sha256', PASSWORD).update('hpb-flow-session').digest('hex');
+  const cookieOk = req => {
+    const m = /(?:^|;\s*)hpbflow=([a-f0-9]{64})/.exec(req.headers.cookie || '');
+    return !!m && timingSafeEqual(Buffer.from(m[1]), Buffer.from(token));
+  };
+  const loginPage = err => `<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Đăng nhập · HPB Flow</title><link rel="stylesheet" href="/style.css"></head>
+<body style="align-items:center;justify-content:center"><form method="post" action="/login" class="card" style="width:320px;padding:24px">
+<h1 style="margin-bottom:4px">HPB Flow</h1><p class="sub">Nhập mật khẩu để vào</p>
+${err ? '<p class="chip err" style="margin:0 0 12px">Sai mật khẩu</p>' : ''}
+<input type="password" name="password" autofocus required style="margin-bottom:12px"><button class="primary" style="width:100%">Đăng nhập</button></form></body></html>`;
+  app.post('/login', express.urlencoded({ extended: false }), async (req, res) => {
+    const given = Buffer.from(createHmac('sha256', PASSWORD).update(String(req.body?.password || '')).digest('hex'));
+    const want = Buffer.from(createHmac('sha256', PASSWORD).update(PASSWORD).digest('hex'));
+    if (!timingSafeEqual(given, want)) { await new Promise(r => setTimeout(r, 1500)); return res.status(401).send(loginPage(true)); }
+    res.set('Set-Cookie', `hpbflow=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${60 * 60 * 24 * 30}`).redirect('/');
+  });
+  app.get('/logout', (req, res) => res.set('Set-Cookie', 'hpbflow=; Path=/; Max-Age=0').redirect('/'));
+  app.use((req, res, next) => {
+    if (req.path === '/style.css' || req.path.startsWith('/api/v1') || req.path === '/v1' || req.path.startsWith('/v1/') || cookieOk(req)) return next();
+    if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Chưa đăng nhập' });
+    res.status(401).send(loginPage(false));
+  });
+}
+
 app.use(express.static(path.join(APP_DIR, 'public')));
 
 // ---- lượt chạy: giữ trong bộ nhớ, ghi run.json để xem lại sau khi mở app
@@ -212,7 +240,7 @@ app.get('/api/ai-models', wrap(() => aiModels()));
 app.get('/api/agents', wrap(() => listAgents()));
 app.post('/api/agents/:id', wrap(req => setAgent(req.params.id, !!req.body.enabled)));
 app.get('/api/engines', wrap(async () => {
-  const chrome = fs.existsSync(process.env.GABEE_CHROME || '/Applications/Google Chrome.app');
+  const chrome = fs.existsSync(CHROME);
   return [
     { id: 'chrome-cdp', name: 'Chrome CDP', vendor: 'Google Chrome', status: chrome ? 'ready' : 'missing', recommended: true, desc: 'Điều khiển Chrome sẵn có trên máy qua cổng gỡ lỗi. Mỗi profile một cửa sổ, phiên đăng nhập riêng, có thể gắn proxy.' },
     { id: 'cloak', name: 'CloakBrowser', vendor: 'CloakBrowser', status: 'unavailable', desc: 'Chromium vá fingerprint. Bản Mac không hỗ trợ — flow khai engine "cloak" tự chạy bằng Chrome CDP.' },
@@ -224,4 +252,4 @@ app.get('/api/engines', wrap(async () => {
 
 mountApi(app, { startRun, waitRun });
 
-app.listen(PORT, '127.0.0.1', () => console.log(`GaBee Mac đang chạy: http://127.0.0.1:${PORT}`));
+app.listen(PORT, HOST, () => console.log(`HPB Flow đang chạy: http://${HOST}:${PORT}${PASSWORD ? ' (có mật khẩu)' : ''}`));

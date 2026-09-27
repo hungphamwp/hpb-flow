@@ -6,7 +6,9 @@ import { spawn } from 'node:child_process';
 import { chromium } from 'playwright-core';
 import { DATA_DIR, PROFILES_DIR } from './paths.js';
 
-const CHROME = process.env.GABEE_CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+export const CHROME = process.env.HPBFLOW_CHROME || (process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : '/usr/bin/chromium-browser');
+// Trên VPS không có màn hình: HPBFLOW_HEADLESS=1 ép mọi hồ sơ chạy ẩn
+const FORCE_HEADLESS = process.env.HPBFLOW_HEADLESS === '1';
 const REGISTRY = path.join(DATA_DIR, 'profiles.json');
 const BASE_PORT = 9330;
 const connections = new Map(); // name -> Browser
@@ -62,7 +64,8 @@ export async function getBrowser(name = 'default') {
     fs.mkdirSync(dir, { recursive: true });
     const args = [`--remote-debugging-port=${prof.port}`, `--user-data-dir=${dir}`, '--no-first-run', '--no-default-browser-check', '--window-size=1280,900'];
     if (prof.proxy) args.push(`--proxy-server=${prof.proxy}`);
-    if (prof.headless) args.push('--headless=new');
+    if (prof.headless || FORCE_HEADLESS) args.push('--headless=new');
+    if (process.env.HPBFLOW_NO_SANDBOX === '1') args.push('--no-sandbox', '--disable-dev-shm-usage');
     const child = spawn(CHROME, args, { detached: true, stdio: 'ignore' });
     child.unref();
     for (let i = 0; i < 80 && !(await isUp(prof.port)); i++) await new Promise(r => setTimeout(r, 250));

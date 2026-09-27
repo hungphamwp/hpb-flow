@@ -1,4 +1,4 @@
-// Trang "Coding Agent": phát hiện agent đã cài trên máy và ghi/gỡ cấu hình MCP gabee-mac cho từng agent.
+// Trang "Coding Agent": phát hiện agent đã cài trên máy và ghi/gỡ cấu hình MCP hpb-flow cho từng agent.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -7,7 +7,7 @@ import { APP_DIR } from './paths.js';
 
 const H = os.homedir();
 const MCP_JS = path.join(APP_DIR, 'src', 'mcp.js');
-const NAME = 'gabee-mac';
+const NAME = 'hpb-flow';
 const entry = () => ({ command: process.execPath, args: [MCP_JS] });
 const exists = p => fs.existsSync(p);
 const which = cmd => { try { return execFileSync('which', [cmd], { encoding: 'utf8' }).trim(); } catch { return ''; } };

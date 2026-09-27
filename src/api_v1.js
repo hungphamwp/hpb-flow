@@ -19,7 +19,7 @@ export function mountApi(app, { startRun, waitRun }) {
   const v1 = express.Router();
   v1.use((req, res, next) => {
     const s = getSettings();
-    if (!s.api_enabled) return res.status(403).json({ error: 'API đang tắt. Bật trong trang API của GaBee Mac.' });
+    if (!s.api_enabled) return res.status(403).json({ error: 'API đang tắt. Bật trong trang API của HPB Flow.' });
     const key = req.get('x-api-key') || (req.get('authorization') || '').replace(/^Bearer\s+/i, '');
     if (key !== s.api_key) return res.status(401).json({ error: 'Sai API key' });
     next();
@@ -50,7 +50,7 @@ export function mountApi(app, { startRun, waitRun }) {
     if (key !== s.api_key) return res.status(401).json({ error: { message: 'Sai API key' } });
     next();
   });
-  ai.get('/models', (req, res) => res.json({ object: 'list', data: aiModels().map(m => ({ id: m.id, object: 'model', owned_by: 'gabee', surface: m.surface, flow: m.flow })) }));
+  ai.get('/models', (req, res) => res.json({ object: 'list', data: aiModels().map(m => ({ id: m.id, object: 'model', owned_by: 'hpb-flow', surface: m.surface, flow: m.flow })) }));
 
   function pickModel(id, surface) {
     const models = aiModels().filter(m => m.surface === surface);
@@ -98,7 +98,7 @@ export function mountApi(app, { startRun, waitRun }) {
   app.use('/v1', ai);
 
   app.get('/api/openapi.json', (req, res) => res.json({
-    openapi: '3.0.0', info: { title: 'GaBee Mac API', version: '0.2.0', description: 'Mọi route /api/v1 và /v1 cần header X-API-Key hoặc Authorization: Bearer <key>.' },
+    openapi: '3.0.0', info: { title: 'HPB Flow API', version: '0.2.0', description: 'Mọi route /api/v1 và /v1 cần header X-API-Key hoặc Authorization: Bearer <key>.' },
     paths: {
       '/api/v1/profiles': { get: { summary: 'Danh sách profile' } },
       '/api/v1/flows': { get: { summary: 'Danh sách flow' } },

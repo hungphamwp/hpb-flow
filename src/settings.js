@@ -34,18 +34,18 @@ export function saveSettings(patch) {
 export function rotateApiKey() { return saveSettings({ api_key: 'gb_' + randomBytes(24).toString('hex') }); }
 
 // Khởi động cùng máy: LaunchAgent chạy server khi đăng nhập
-const PLIST = path.join(os.homedir(), 'Library', 'LaunchAgents', 'vn.hpbmedia.gabee-mac.plist');
+const PLIST = path.join(os.homedir(), 'Library', 'LaunchAgents', 'vn.hpbmedia.hpb-flow.plist');
 function setLaunchAtLogin(on) {
   if (!on) { execFile('launchctl', ['unload', PLIST], () => {}); try { fs.unlinkSync(PLIST); } catch { /* chưa có */ } return; }
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-<key>Label</key><string>vn.hpbmedia.gabee-mac</string>
+<key>Label</key><string>vn.hpbmedia.hpb-flow</string>
 <key>ProgramArguments</key><array><string>${process.execPath}</string><string>${path.join(APP_DIR, 'src', 'server.js')}</string></array>
 <key>RunAtLoad</key><true/>
 <key>KeepAlive</key><false/>
-<key>StandardOutPath</key><string>${path.join(os.homedir(), 'Library', 'Logs', 'gabee-mac.log')}</string>
-<key>StandardErrorPath</key><string>${path.join(os.homedir(), 'Library', 'Logs', 'gabee-mac.log')}</string>
+<key>StandardOutPath</key><string>${path.join(os.homedir(), 'Library', 'Logs', 'hpb-flow.log')}</string>
+<key>StandardErrorPath</key><string>${path.join(os.homedir(), 'Library', 'Logs', 'hpb-flow.log')}</string>
 </dict></plist>`;
   fs.mkdirSync(path.dirname(PLIST), { recursive: true });
   fs.writeFileSync(PLIST, xml);

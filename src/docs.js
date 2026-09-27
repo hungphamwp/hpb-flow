@@ -1,8 +1,8 @@
 import { NODE_DOCS } from './nodes.js';
 
-export const FLOW_GUIDE = `# Viết flow cho GaBee Mac
+export const FLOW_GUIDE = `# Viết flow cho HPB Flow
 
-Flow là đồ thị node, cùng định dạng với GaBee gốc:
+Flow là đồ thị node, cùng định dạng với bản gốc:
 
 {
   "id": "ten-flow", "name": "Tên hiển thị", "description": "Mô tả", "tags": ["facebook"],

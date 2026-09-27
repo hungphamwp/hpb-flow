@@ -1,6 +1,6 @@
-# GaBee Mac
+# HPB Flow
 
-Bản viết lại cho macOS của GaBee (app tự động hoá trình duyệt bằng flow, điều khiển được từ coding agent qua MCP). Chạy bằng Google Chrome có sẵn trên máy, mỗi hồ sơ một cửa sổ Chrome với phiên đăng nhập riêng.
+HPB Flow (app tự động hoá trình duyệt bằng flow, điều khiển được từ coding agent qua MCP). Chạy bằng Google Chrome có sẵn trên máy, mỗi hồ sơ một cửa sổ Chrome với phiên đăng nhập riêng.
 
 ## Chạy
 
@@ -9,14 +9,14 @@ npm install
 npm start            # http://127.0.0.1:4719
 ```
 
-Hoặc mở `~/Applications/GaBee Mac.app` (tự bật server rồi mở giao diện).
+Hoặc mở `~/Applications/HPB Flow.app` (tự bật server rồi mở giao diện).
 
 ## Cấu trúc
 
 | Thư mục | Nội dung |
 |---|---|
 | `src/engine.js` | Trình chạy flow dạng đồ thị node (id → next / on_error, condition, loop) |
-| `src/nodes.js` | 34 loại node, cùng tên và tham số với flow GaBee gốc |
+| `src/nodes.js` | 34 loại node, cùng tên và tham số với flow bản gốc |
 | `src/template.js` | Thay biến `{{vars.x}}`, biểu thức condition |
 | `src/browser.js` | Hồ sơ Chrome (proxy, chạy ẩn), kết nối CDP |
 | `src/server.js` | API nội bộ cho giao diện, lượt chạy, tab làm việc |
@@ -25,11 +25,11 @@ Hoặc mở `~/Applications/GaBee Mac.app` (tự bật server rồi mở giao di
 | `src/agents.js` | Ghi/gỡ cấu hình MCP cho từng agent |
 | `public/` | Giao diện: Tổng quan, Workflow (grid + canvas), Lần chạy, Thư viện, Hồ sơ, Proxy, Trình duyệt, API, Cài đặt |
 
-Dữ liệu người dùng: `~/Library/Application Support/GaBeeMac/` (flows, profiles, library/media, runs, settings.json). Kết quả flow: `~/Downloads/GaBeeMac`.
+Dữ liệu người dùng: `~/Library/Application Support/HPBFlow/` (flows, profiles, library/media, runs, settings.json). Kết quả flow: `~/Downloads/HPBFlow`.
 
 ## Flow
 
-Định dạng giống GaBee gốc:
+Định dạng giống bản gốc:
 
 ```json
 {

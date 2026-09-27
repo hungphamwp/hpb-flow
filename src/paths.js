@@ -4,17 +4,18 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 export const APP_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const DATA_DIR = process.env.GABEE_DATA || path.join(os.homedir(), 'Library', 'Application Support', 'GaBeeMac');
+export const DATA_DIR = process.env.HPBFLOW_DATA || path.join(os.homedir(), 'Library', 'Application Support', 'HPBFlow');
 export const PROFILES_DIR = path.join(DATA_DIR, 'profiles');
 export const USER_FLOWS_DIR = path.join(DATA_DIR, 'flows');
 export const BUILTIN_FLOWS_DIR = path.join(APP_DIR, 'flows');
 export const LIBRARY_DIR = path.join(DATA_DIR, 'library', 'media');
 export const RUNS_DIR = path.join(DATA_DIR, 'runs');
 export const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
-export const PORT = Number(process.env.GABEE_PORT || 4719);
+export const PORT = Number(process.env.HPBFLOW_PORT || 4719);
+export const HOST = process.env.HPBFLOW_HOST || '127.0.0.1';
 
 // Thư mục kết quả có thể đổi trong Cài đặt → dùng live binding
-export let OUTPUT_DIR = path.join(os.homedir(), 'Downloads', 'GaBeeMac');
+export let OUTPUT_DIR = path.join(os.homedir(), 'Downloads', 'HPBFlow');
 export function setOutputDir(dir) {
   OUTPUT_DIR = dir.replace(/^~(?=\/|$)/, os.homedir());
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });

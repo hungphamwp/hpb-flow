@@ -1,4 +1,4 @@
-// Trình chạy flow dạng đồ thị node (định dạng GaBee gốc):
+// Trình chạy flow dạng đồ thị node (định dạng bản gốc):
 // flow = { id, name, description, inputs: [...], vars: {...}, groups?: [...], nodes: [ {id, label, type, params, next?, on_error?} ] }
 import fs from 'node:fs';
 import path from 'node:path';

@@ -1,4 +1,4 @@
-// Thay biến {{vars.x}} trong tham số node. Định dạng giống flow GaBee gốc:
+// Thay biến {{vars.x}} trong tham số node. Định dạng giống flow bản gốc:
 // - chuỗi chỉ gồm một template → trả về giá trị thô (mảng, object, số…)
 // - template nằm trong chuỗi → chèn chuỗi; mảng/object thì chèn JSON
 // - bên trong {{ }} có thể là biểu thức JS, ví dụ {{vars.model && ('?model=' + vars.model) || ''}}

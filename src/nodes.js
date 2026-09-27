@@ -1,4 +1,4 @@
-// Các loại node của flow, cùng tên và tham số với flow GaBee gốc.
+// Các loại node của flow, cùng tên và tham số với flow bản gốc.
 // Mỗi hàm nhận (p = params đã thay biến, node, ctx) và trả về giá trị; giá trị được ghi vào vars[p.output_var] nếu có.
 // Trả về { __goto: id } để rẽ nhánh, { __end: true, output } để kết thúc flow.
 import fs from 'node:fs';

@@ -1,4 +1,4 @@
-// Cổng MCP (stdio) cho Claude Code, cùng bộ tool với GaBee gốc. Mọi lệnh đi qua HTTP tới app đang chạy
+// Cổng MCP (stdio) cho Claude Code, cùng bộ tool với bản gốc. Mọi lệnh đi qua HTTP tới app đang chạy
 // nên Claude và giao diện dùng chung trình duyệt, profile và lịch sử chạy.
 import path from 'node:path';
 import { spawn } from 'node:child_process';
@@ -16,7 +16,7 @@ async function ensureServer() {
     await new Promise(r => setTimeout(r, 250));
     try { await fetch(BASE + '/api/profiles'); return; } catch { /* chờ */ }
   }
-  throw new Error('Không khởi động được GaBee Mac');
+  throw new Error('Không khởi động được HPB Flow');
 }
 async function api(method, url, body) {
   await ensureServer();
@@ -38,7 +38,7 @@ const tool = fn => async args => { try { return text(await fn(args)); } catch (e
 const Flow = z.record(z.string(), z.any());
 const Vars = z.record(z.string(), z.any()).optional();
 
-const server = new McpServer({ name: 'gabee-mac', version: '0.2.0' });
+const server = new McpServer({ name: 'hpb-flow', version: '0.2.0' });
 
 server.tool('get_flow_guide', 'Hướng dẫn viết flow (đọc trước khi tạo flow mới)', {}, tool(async () => (await api('GET', '/api/guide')).guide));
 server.tool('list_nodes', 'Danh sách loại node và tham số — nguồn sự thật về cú pháp', {}, tool(() => api('GET', '/api/nodes')));

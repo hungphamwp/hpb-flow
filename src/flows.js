@@ -1,4 +1,4 @@
-// Flow gốc nhập từ bộ cài GaBee nằm trong DATA_DIR/flows; flow mẫu của app trong thư mục flows/. Trùng id thì bản người dùng thắng.
+// Flow gốc nhập từ bộ cài gốc nằm trong DATA_DIR/flows; flow mẫu của app trong thư mục flows/. Trùng id thì bản người dùng thắng.
 import fs from 'node:fs';
 import path from 'node:path';
 import { BUILTIN_FLOWS_DIR, USER_FLOWS_DIR } from './paths.js';

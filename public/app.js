@@ -1,4 +1,4 @@
-/* GaBee Mac — giao diện web. Trang: Tổng quan, Workflow (danh sách/chi tiết/canvas), Lần chạy, Thư viện, Hồ sơ, Proxy, Trình duyệt, API, Cài đặt. */
+/* HPB Flow — giao diện web. Trang: Tổng quan, Workflow (danh sách/chi tiết/canvas), Lần chạy, Thư viện, Hồ sơ, Proxy, Trình duyệt, API, Cài đặt. */
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const j = v => JSON.stringify(v);
@@ -28,7 +28,7 @@ function nav(h) { location.hash = h; }
 // ---------- tổng quan
 async function overview() {
   const o = await api('GET', '/api/overview');
-  $('#main').innerHTML = `<h1>Tổng quan</h1><p class="sub">GaBee Mac · tự động hoá trình duyệt bằng flow, điều khiển được từ Claude Code qua MCP</p>
+  $('#main').innerHTML = `<h1>Tổng quan</h1><p class="sub">HPB Flow · tự động hoá trình duyệt bằng flow, điều khiển được từ Claude Code qua MCP</p>
   <div class="tiles">
     <div class="tile"><b>${o.flows}</b><span>workflow${o.flow_errors ? ` · <span style="color:var(--err)">${o.flow_errors} lỗi</span>` : ''}</span></div>
     <div class="tile"><b>${o.profiles}</b><span>hồ sơ trình duyệt</span></div>
@@ -77,7 +77,7 @@ function newFlow() {
 function jsonEditor(flow, isNew) {
   const { _source, _file, ...clean } = flow;
   $('#main').innerHTML = `<div class="topbar"><button onclick="history.back()">← Quay lại</button><h1>${isNew ? 'Flow mới' : esc(flow.name || flow.id)}</h1></div>
-  <p class="sub">Sửa JSON rồi Lưu. Cách nhanh hơn: trong Claude Code gõ "dùng gabee tạo workflow …", Claude tự dò trang và viết flow qua MCP.</p>
+  <p class="sub">Sửa JSON rồi Lưu. Cách nhanh hơn: trong Claude Code gõ "dùng hpb-flow tạo workflow …", Claude tự dò trang và viết flow qua MCP.</p>
   <textarea id="jsonText" style="min-height:70vh;font:12px ui-monospace,Menlo,monospace">${esc(JSON.stringify(clean, null, 2))}</textarea>
   <div class="row" style="margin-top:10px"><button class="primary" onclick="saveJson()">Lưu flow</button><button onclick="validateJson()">Kiểm tra</button><span id="jsonMsg" class="muted small"></span></div>`;
 }
@@ -119,7 +119,7 @@ async function flowDetail(id, mode) {
   if (mode === 'json') return jsonEditor(f);
   state.profiles = await api('GET', '/api/profiles');
   const runs = (await api('GET', '/api/runs?limit=200')).filter(r => r.flow_id === id).slice(0, 12);
-  const prof = state.profiles.find(p => p.name === (localStorage.getItem('gabee.profile') || 'default')) || state.profiles[0];
+  const prof = state.profiles.find(p => p.name === (localStorage.getItem('hpbflow.profile') || 'default')) || state.profiles[0];
   const needsBrowser = (f.nodes || []).some(n => n.type === 'browser_session');
   $('#main').innerHTML = `<div class="detail">
     <div class="left">
@@ -144,7 +144,7 @@ async function flowDetail(id, mode) {
 }
 async function setHeadless(on) { const name = $('#profName').textContent; await api('PATCH', '/api/profiles/' + name, { headless: on }); toast(on ? 'Profile sẽ chạy ẩn ở lần mở Chrome tiếp theo' : 'Profile sẽ hiện cửa sổ'); }
 function chooseProfile() {
-  modal(`<h3>Chọn hồ sơ trình duyệt</h3>${state.profiles.map(p => `<div class="opt ${p.name === $('#profName').textContent ? 'on' : ''}" onclick="localStorage.setItem('gabee.profile',${j(p.name)});$('#profName').textContent=${j(p.name)};$('#modal').close()"><b>${esc(p.name)}</b> <span class="muted small">${esc(p.engine)}${p.proxy ? ' · proxy ' + esc(p.proxy) : ''}</span><small>${esc(p.note || '')}</small></div>`).join('')}<div class="acts"><button onclick="$('#modal').close();nav('#/profiles')">Quản lý hồ sơ</button></div>`);
+  modal(`<h3>Chọn hồ sơ trình duyệt</h3>${state.profiles.map(p => `<div class="opt ${p.name === $('#profName').textContent ? 'on' : ''}" onclick="localStorage.setItem('hpbflow.profile',${j(p.name)});$('#profName').textContent=${j(p.name)};$('#modal').close()"><b>${esc(p.name)}</b> <span class="muted small">${esc(p.engine)}${p.proxy ? ' · proxy ' + esc(p.proxy) : ''}</span><small>${esc(p.note || '')}</small></div>`).join('')}<div class="acts"><button onclick="$('#modal').close();nav('#/profiles')">Quản lý hồ sơ</button></div>`);
 }
 async function runFlow() {
   const f = state.flow;
@@ -320,7 +320,7 @@ async function library() {
   $('#main').innerHTML = `<div class="topbar"><h1>Thư viện</h1><div class="right"><span class="chip">${items.length} file</span><span class="chip">${items.filter(i => !i.video).length} ảnh</span><span class="chip">${items.filter(i => i.video).length} video</span></div></div><p class="sub">Ảnh và video các workflow đã tạo ra</p>
   <div class="search"><input type="text" placeholder="Tìm theo tên file…" value="${esc(state.lib.q)}" oninput="state.lib.q=this.value;library()">
     <div class="tags" style="margin:0"><button class="${!state.lib.kind ? 'on' : ''}" onclick="state.lib.kind='';library()">Tất cả</button><button class="${state.lib.kind === 'image' ? 'on' : ''}" onclick="state.lib.kind='image';library()">Ảnh</button><button class="${state.lib.kind === 'video' ? 'on' : ''}" onclick="state.lib.kind='video';library()">Video</button></div>
-    <button onclick="api('POST','/api/open-path',{path:'~/Library/Application Support/GaBeeMac/library/media'})">Mở thư mục</button></div>
+    <button onclick="api('POST','/api/open-path',{path:'~/Library/Application Support/HPBFlow/library/media'})">Mở thư mục</button></div>
   <div class="mgrid">${list.map(i => `<figure onclick='previewMedia(${j(i)})'>${i.video ? `<video src="/api/file?path=${encodeURIComponent(i.path)}" muted></video>` : `<img src="/api/file?path=${encodeURIComponent(i.path)}" loading="lazy">`}<figcaption>${esc(i.name)}<br><span class="muted">media · ${(i.size / 1024).toFixed(0)} KB</span></figcaption></figure>`).join('') || '<p class="muted">Chưa có gì. Chạy flow tạo ảnh (chatgpt-image, gemini-image) để có kết quả ở đây.</p>'}</div>`;
 }
 function previewMedia(i) {
@@ -404,9 +404,9 @@ async function apiPage() {
   -H "Authorization: Bearer &lt;khoá&gt;" -H "content-type: application/json" \\
   -d '{"model":"gpt-5.6","messages":[{"role":"user","content":"Xin chào"}]}'</pre>`
   : `
-    <h2>Để AI tự viết workflow cho bạn</h2><p class="small">Cắm GaBee vào coding agent bạn đang dùng, rồi mô tả việc muốn tự động hoá bằng tiếng Việt. Agent tự đọc danh sách node, tự nhìn trang web đang mở để lấy selector thật, viết flow rồi chạy thử. Tiền LLM tính vào gói đăng ký agent của bạn.</p>
+    <h2>Để AI tự viết workflow cho bạn</h2><p class="small">Cắm HPB Flow vào coding agent bạn đang dùng, rồi mô tả việc muốn tự động hoá bằng tiếng Việt. Agent tự đọc danh sách node, tự nhìn trang web đang mở để lấy selector thật, viết flow rồi chạy thử. Tiền LLM tính vào gói đăng ký agent của bạn.</p>
     <div class="lbl">Agent trên máy này</div><div id="agents"><span class="muted small">Đang kiểm tra…</span></div>
-    <div class="lbl">Thử xem chạy chưa</div><ol class="steps small"><li>Khởi động lại agent vừa cài — nó chỉ nạp tool lúc mở.</li><li>Giữ GaBee Mac đang chạy (app này).</li><li>Dán prompt sau vào agent: <code>dùng gabee list_flows rồi chạy flow test-browser-echo</code></li><li>Thấy agent gọi tool <code>gabee-mac</code> và trả kết quả là xong.</li></ol>`;
+    <div class="lbl">Thử xem chạy chưa</div><ol class="steps small"><li>Khởi động lại agent vừa cài — nó chỉ nạp tool lúc mở.</li><li>Giữ HPB Flow đang chạy (app này).</li><li>Dán prompt sau vào agent: <code>dùng gabee list_flows rồi chạy flow test-browser-echo</code></li><li>Thấy agent gọi tool <code>hpb-flow</code> và trả kết quả là xong.</li></ol>`;
   $('#main').innerHTML = `<h1>API</h1><p class="sub">Dùng ChatGPT/Gemini bạn đang đăng nhập như một API (OpenAI-compatible)</p>
   <div class="card" style="padding:0"><div class="apibar"><b>⚙ API đang ${s.api_enabled ? 'BẬT' : 'TẮT'}</b><button class="switch ${s.api_enabled ? 'on' : ''}" onclick="api('POST','/api/settings',{api_enabled:${!s.api_enabled}}).then(apiPage)"></button><span class="chip ${s.api_enabled ? 'ok' : ''}">${s.api_enabled ? 'Đang chạy' : 'Đang tắt'}</span><code>${esc(s.local_url)}</code><button class="sm" onclick="copy(${j(s.local_url)})">Chép</button><a class="small" href="/api/openapi.json" target="_blank">⧉ Tài liệu API</a></div>
   <div style="display:flex;gap:14px;padding:14px 16px"><div class="subtabs">${[['key', '🔑 Khoá API'], ['ai', '🤖 AI API'], ['agent', '⌨ Coding Agent']].map(([k, l]) => `<button class="${state.apiTab === k ? 'on' : ''}" onclick="state.apiTab='${k}';apiPage()">${l}</button>`).join('')}</div><div style="flex:1;min-width:0">${body}</div></div></div>`;
@@ -424,11 +424,11 @@ async function settings() {
   const s = await api('GET', '/api/settings');
   $('#main').innerHTML = `<h1>Cài đặt</h1><p class="sub">Worker, hồ sơ, nơi lưu file và giao diện</p>
   <div class="card">
-    <div class="section"><div class="lbl" style="margin-top:0">Khởi động cùng máy</div><div class="row"><span class="small">Tự động mở GaBee khi đăng nhập vào máy, worker sẽ luôn sẵn sàng.</span><span style="flex:1"></span><button class="switch ${s.launch_at_login ? 'on' : ''}" onclick="api('POST','/api/settings',{launch_at_login:${!s.launch_at_login}}).then(settings)"></button></div></div>
-    <div class="section"><div class="lbl" style="margin-top:0">Nơi lưu kết quả</div><code style="display:block;padding:8px 10px;margin-bottom:8px">${esc(s.output_dir)}</code><div class="row"><button class="sm" onclick="api('POST','/api/choose-folder').then(r=>r.path&&api('POST','/api/settings',{output_dir:r.path}).then(settings))">Chọn thư mục</button><button class="sm" onclick="api('POST','/api/settings',{output_dir:'~/Downloads/GaBeeMac'}).then(settings)">Đặt lại</button><button class="sm" onclick="api('POST','/api/open-path',{path:${j(s.output_dir)}})">Mở thư mục</button></div></div>
+    <div class="section"><div class="lbl" style="margin-top:0">Khởi động cùng máy</div><div class="row"><span class="small">Tự động mở HPB Flow khi đăng nhập vào máy, worker sẽ luôn sẵn sàng.</span><span style="flex:1"></span><button class="switch ${s.launch_at_login ? 'on' : ''}" onclick="api('POST','/api/settings',{launch_at_login:${!s.launch_at_login}}).then(settings)"></button></div></div>
+    <div class="section"><div class="lbl" style="margin-top:0">Nơi lưu kết quả</div><code style="display:block;padding:8px 10px;margin-bottom:8px">${esc(s.output_dir)}</code><div class="row"><button class="sm" onclick="api('POST','/api/choose-folder').then(r=>r.path&&api('POST','/api/settings',{output_dir:r.path}).then(settings))">Chọn thư mục</button><button class="sm" onclick="api('POST','/api/settings',{output_dir:'~/Downloads/HPBFlow'}).then(settings)">Đặt lại</button><button class="sm" onclick="api('POST','/api/open-path',{path:${j(s.output_dir)}})">Mở thư mục</button></div></div>
     <div class="section"><div class="lbl" style="margin-top:0">Nơi lưu hồ sơ trình duyệt</div><p class="small muted">Thư mục gốc chứa dữ liệu đăng nhập của từng hồ sơ.</p><code style="display:block;padding:8px 10px;margin-bottom:8px">${esc(s.profiles_dir)}</code><button class="sm" onclick="api('POST','/api/open-path',{path:${j(s.profiles_dir)}})">Mở thư mục</button></div>
-    <div class="section"><div class="lbl" style="margin-top:0">Thư viện ảnh/video</div><code style="display:block;padding:8px 10px">~/Library/Application Support/GaBeeMac/library/media</code></div>
-    <div class="section"><div class="lbl" style="margin-top:0">Flow gốc đã nhập</div><p class="small muted">41 flow từ bộ cài GaBee nằm ở <code>~/Library/Application Support/GaBeeMac/flows</code>. Engine cloak/adspower trong flow tự chuyển sang Chrome CDP.</p></div>
+    <div class="section"><div class="lbl" style="margin-top:0">Thư viện ảnh/video</div><code style="display:block;padding:8px 10px">~/Library/Application Support/HPBFlow/library/media</code></div>
+    <div class="section"><div class="lbl" style="margin-top:0">Flow gốc đã nhập</div><p class="small muted">41 flow mẫu nằm ở <code>~/Library/Application Support/HPBFlow/flows</code>. Engine cloak/adspower trong flow tự chuyển sang Chrome CDP.</p></div>
   </div>`;
 }
 
