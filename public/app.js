@@ -186,7 +186,7 @@ function drawCanvas(f, el, opts = {}) {
   const svgEdges = L.edges.map(e => {
     const a = L.pos.get(e.from), b = L.pos.get(e.to); if (!a || !b) return '';
     const x1 = a.x + W / 2, y1 = a.y + H, x2 = b.x + W / 2, y2 = b.y;
-    const color = { next: '#9a9a90', yes: '#1f8a4c', body: '#2563eb', no: '#c53a2b', err: '#c53a2b' }[e.kind];
+    const color = { next: '#94a3b8', yes: '#15803d', body: '#7c3aed', no: '#dc2626', err: '#dc2626' }[e.kind];
     let d; if (y2 <= y1 - 20) { const off = 160; d = `M${x1},${y1} C${x1 + off},${y1 + 60} ${x2 + off},${y2 - 60} ${x2},${y2}`; }
     else d = `M${x1},${y1} C${x1},${(y1 + y2) / 2} ${x2},${(y1 + y2) / 2} ${x2},${y2}`;
     const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;

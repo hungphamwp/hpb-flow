@@ -24,7 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
     window.center()
     window.setFrameAutosaveName("HPBFlowMain")
     window.makeKeyAndOrderFront(nil)
-    web.loadHTMLString("<body style='font:15px -apple-system;color:#7a786f;background:#f7f6f2;display:flex;align-items:center;justify-content:center;height:100vh;margin:0'>Đang khởi động HPB Flow…</body>", baseURL: nil)
+    web.loadHTMLString("<body style='font:15px -apple-system;color:#64748b;background:#f8fafc;display:flex;align-items:center;justify-content:center;height:100vh;margin:0'>Đang khởi động HPB Flow…</body>", baseURL: nil)
     DispatchQueue.global().async {
       let ok = self.isUp() || self.startServer()
       DispatchQueue.main.async {
