@@ -1,0 +1,2 @@
+Sticker động trong thư mục này lấy từ Noto Animated Emoji (Google), https://googlefonts.github.io/noto-emoji-animation/
+Giấy phép: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Đã thu nhỏ về 160px để dùng trong HPB Flow.

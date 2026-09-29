@@ -88,7 +88,11 @@ export async function getContext(name) { return (await getBrowser(name)).context
 
 // Đưa tab lên trước và giả lập đang focus: trang như Facebook không vẽ mốc giờ / link bài
 // (chỉ hiện khi rê chuột) nếu tab nằm nền, nên tab nào flow dùng cũng phải qua đây.
+const dialogHooked = new WeakSet();
 export async function focusPage(page) {
+  // Hộp thoại "Rời trang?" (beforeunload, vd. Facebook khi ô bình luận còn chữ) → đồng ý để lệnh mở trang tiếp theo không bị chặn;
+  // alert/confirm/prompt khác vẫn huỷ như mặc định của Playwright
+  if (!dialogHooked.has(page)) { dialogHooked.add(page); page.on('dialog', d => (d.type() === 'beforeunload' ? d.accept() : d.dismiss()).catch(() => {})); }
   await page.bringToFront().catch(() => {});
   try {
     const session = await page.context().newCDPSession(page);

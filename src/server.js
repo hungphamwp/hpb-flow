@@ -71,6 +71,7 @@ function startRun(flow, vars, { profile, keepTab, stopAfter, source = 'canvas' }
   }).finally(() => { run.status = 'running'; run.pause_message = null; run.resolvePause = null; pub(run); });
   runFlow(flow, {
     profile, vars, log, pause, keepTab, stopAfter, runId: run.id, signal: run.controller.signal, getFlow,
+    shouldFinish: () => run.finishEarly,
     onNode: n => { run.current_node = n.id; (run.trail ||= []).push(n.id); pub(run); },
     emitShot: (file, label) => { run.shots.push({ url: `/api/runs/${run.id}/shot/${path.basename(file)}`, label, node: run.current_node }); pub(run); },
   })
@@ -134,6 +135,8 @@ app.get('/api/runs', wrap(req => [...runs.values()].sort((a, b) => b.started - a
 app.get('/api/runs/:id', wrap(req => { const r = runs.get(req.params.id); if (!r) throw new Error('Không có lượt chạy này'); return publicRun(r); }));
 app.post('/api/runs/:id/continue', wrap(req => { runs.get(req.params.id)?.resolvePause?.(); return { ok: true }; }));
 app.post('/api/runs/:id/stop', wrap(req => { const r = runs.get(req.params.id); r?.controller?.abort(); r?.resolvePause?.(); return { ok: true }; }));
+// Dừng & lấy kết quả: vòng lặp đang chạy thoát sau lượt hiện tại, flow chạy tiếp các bước xuất kết quả
+app.post('/api/runs/:id/finish', wrap(req => { const r = runs.get(req.params.id); if (r && r.status !== 'ok' && r.status !== 'error') { r.finishEarly = true; r.finish_requested = true; r.logs.push(`${new Date().toLocaleTimeString('vi-VN')} ⏭ Đã yêu cầu dừng & lấy kết quả — chờ xong lượt hiện tại`); pub(r); } return { ok: !!r }; }));
 app.delete('/api/runs/:id', wrap(req => { runs.delete(req.params.id); fs.rmSync(path.join(RUNS_DIR, req.params.id), { recursive: true, force: true }); return { ok: true }; }));
 app.get('/api/runs/:id/shot/:file', (req, res) => res.sendFile(path.join(RUNS_DIR, req.params.id, path.basename(req.params.file))));
 
@@ -233,6 +236,43 @@ app.post('/api/proxies', wrap(req => {
 app.delete('/api/proxies/:name', wrap(req => { const list = readProxies().filter(p => p.name !== req.params.name); fs.writeFileSync(PROXIES, JSON.stringify(list, null, 2)); return list; }));
 
 // ---- cài đặt, API, coding agent
+// Báo cáo quét nhóm & bình luận Facebook (đọc các file flow ghi ra trong thư mục kết quả)
+app.get('/api/reports/fb', wrap(() => {
+  const rd = (f, d) => { try { return JSON.parse(fs.readFileSync(path.join(OUTPUT_DIR, f), 'utf8')); } catch { return d; } };
+  let sheet = ''; try { sheet = fs.readFileSync(path.join(OUTPUT_DIR, 'sheet-nhat-ky.txt'), 'utf8').trim(); } catch { /* chưa có */ }
+  const stats = rd('nhom-thong-ke.json', {});
+  const groups = Object.entries(stats).map(([id, h]) => ({ id, name: h.name, lan_quet: h.lan_quet || 0, bai: h.bai || 0, lead_cao: h.lead_cao || 0, lead_tb: h.lead_tb || 0,
+    rac: h.bai_quet ? Math.round(h.rac / h.bai_quet * 100) : null, tuong_tac: h.eng_n ? Math.round(h.eng_sum / h.eng_n) : null, lan_cuoi: h.lan_cuoi || '' }));
+  return { comments: rd('binh-luan-lich-su.json', []).slice(-500).reverse(), runs: rd('tu-dong-lich-su.json', []).slice(-300).reverse(), groups, sheet };
+}));
+// ---- việc cần làm mỗi ngày (to-do): lưu file todos.json trong thư mục dữ liệu của app
+const TODOS = path.join(path.dirname(RUNS_DIR), 'todos.json');
+const readTodos = () => { try { return JSON.parse(fs.readFileSync(TODOS, 'utf8')); } catch { return []; } };
+const writeTodos = list => fs.writeFileSync(TODOS, JSON.stringify(list, null, 1));
+const isDay = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ''));
+app.get('/api/todos', wrap(req => {
+  const all = readTodos(), day = isDay(req.query.date) ? req.query.date : null;
+  if (!day) return all;
+  // việc chưa xong của các ngày trước (để chuyển sang hôm nay)
+  return { items: all.filter(t => t.date === day), overdue: all.filter(t => !t.done && t.date < day) };
+}));
+app.post('/api/todos', wrap(req => {
+  const text = String(req.body.text || '').trim(); if (!text) throw new Error('Nhập nội dung việc cần làm');
+  if (!isDay(req.body.date)) throw new Error('Thiếu ngày');
+  const list = readTodos(), t = { id: 't' + Date.now().toString(36) + randomUUID().slice(0, 4), date: req.body.date, text: text.slice(0, 500), done: false, star: !!req.body.star, prio: [1, 2, 3, 4].includes(+req.body.prio) ? +req.body.prio : 4, note: String(req.body.note || '').trim().slice(0, 1000), created: Date.now() };
+  list.push(t); writeTodos(list); return t;
+}));
+app.patch('/api/todos/:id', wrap(req => {
+  const list = readTodos(), t = list.find(x => x.id === req.params.id); if (!t) throw new Error('Không có việc này');
+  if ('done' in req.body) { t.done = !!req.body.done; t.doneAt = t.done ? Date.now() : null; }
+  if ('star' in req.body) t.star = !!req.body.star;
+  if ([1, 2, 3, 4].includes(+req.body.prio)) { t.prio = +req.body.prio; t.star = false; }
+  if ('note' in req.body) t.note = String(req.body.note || '').trim().slice(0, 1000);
+  if ('text' in req.body && String(req.body.text).trim()) t.text = String(req.body.text).trim().slice(0, 500);
+  if ('date' in req.body && isDay(req.body.date)) t.date = req.body.date;
+  writeTodos(list); return t;
+}));
+app.delete('/api/todos/:id', wrap(req => { writeTodos(readTodos().filter(x => x.id !== req.params.id)); return { ok: true }; }));
 app.get('/api/settings', wrap(() => ({ ...getSettings(), output_dir: OUTPUT_DIR, profiles_dir: PROFILES_DIR })));
 app.post('/api/settings', wrap(req => saveSettings(req.body)));
 app.post('/api/settings/rotate-key', wrap(() => rotateApiKey()));

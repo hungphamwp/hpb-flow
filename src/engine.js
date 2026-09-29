@@ -49,7 +49,8 @@ function collectPaths(output, files) {
 }
 
 /**
- * Chạy flow. opts: { profile, vars, log, pause, signal, onNode, emitShot, keepTab, stopAfter, runId, getFlow }
+ * Chạy flow. opts: { profile, vars, log, pause, signal, shouldFinish, onNode, emitShot, keepTab, stopAfter, runId, getFlow }
+ * shouldFinish(): true khi người dùng bấm "Dừng & lấy kết quả" — vòng lặp thoát sớm, flow chạy tiếp các bước sau vòng lặp.
  * Trả về { status: 'ok'|'error'|'stopped', output, output_paths, error, error_code }
  */
 export async function runFlow(flow, opts = {}) {
@@ -67,6 +68,7 @@ export async function runFlow(flow, opts = {}) {
   const nodes = new Map(flow.nodes.map(n => [n.id, n]));
   const ctx = {
     page, context, pages: [page], vars, log, runDir, files: [], signal: opts.signal,
+    shouldFinish: () => !!opts.shouldFinish?.(),
     pause: opts.pause || (async () => {}),
     emitShot: opts.emitShot || (() => {}),
     async runGraph(startId) { return walk(startId); },
@@ -85,6 +87,10 @@ export async function runFlow(flow, opts = {}) {
       if (!node) throw new Error(`Node "${id}" không tồn tại`);
       opts.onNode?.(node);
       log(`▶ ${node.label || node.type} (${node.id})`);
+      // tab bị đóng giữa chừng (vd. sau workflow con, hoặc Chrome khởi động lại): mở tab mới để chạy tiếp thay vì hỏng cả lượt
+      if (ctx.page.isClosed?.()) {
+        try { ctx.context = await getContext(opts.profile || 'default'); ctx.page = await focusPage(await ctx.context.newPage()); ctx.pages.push(ctx.page); log('  ↻ Tab đã bị đóng, mở tab mới để chạy tiếp'); } catch { /* để bước sau tự báo lỗi */ }
+      }
       const params = render(node.params || {}, vars);
       let next = node.next, result;
       try {
@@ -94,6 +100,7 @@ export async function runFlow(flow, opts = {}) {
         else if (params.output_var) vars[params.output_var] = result;
       } catch (e) {
         const msg = e.message.split('\n')[0];
+        vars._last_error = `${node.label || node.id}: ${msg}`; // để bước xử lý lỗi ghi được lý do thật
         if (!node.on_error) throw new Error(`${node.label || node.id}: ${msg}`);
         log(`  ⚠ ${msg} → chuyển sang ${node.on_error}`);
         next = node.on_error;

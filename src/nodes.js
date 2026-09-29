@@ -2,6 +2,8 @@
 // Mỗi hàm nhận (p = params đã thay biến, node, ctx) và trả về giá trị; giá trị được ghi vào vars[p.output_var] nếu có.
 // Trả về { __goto: id } để rẽ nhánh, { __end: true, output } để kết thúc flow.
 import fs from 'node:fs';
+import os from 'node:os';
+import { execFile } from 'node:child_process';
 import path from 'node:path';
 import ExcelJS from 'exceljs';
 import { LIBRARY_DIR, OUTPUT_DIR, resolvePath } from './paths.js';
@@ -133,7 +135,11 @@ export const NODES = {
     const loc = await find(page, p.selector, +p.timeout || 15000);
     const value = p.value == null ? '' : String(p.value);
     if (p.mode === 'keystrokes') {
-      await loc.click();
+      // ô bị lớp khác che (popup, thanh dính của Facebook…) thì focus bằng mã rồi gõ tiếp, không kẹt 30 giây
+      // caret_end: gõ tiếp ở cuối ô (không bấm chuột vào giữa ô) — dùng khi gõ nhiều đoạn, vd. quanh một tag @tên
+      const toEnd = el => { el.scrollIntoView({ block: 'center' }); el.focus(); const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); const s = getSelection(); s.removeAllRanges(); s.addRange(r); };
+      if (p.caret_end) await loc.evaluate(toEnd);
+      else await loc.click({ timeout: 5000 }).catch(() => loc.evaluate(el => { el.scrollIntoView({ block: 'center' }); el.focus(); }));
       if (p.clear_first !== false) { await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A'); await page.keyboard.press('Backspace'); }
       await page.keyboard.type(value, { delay: +p.delay || 0 });
     } else {
@@ -177,7 +183,11 @@ export const NODES = {
     const hasTimes = p.times != null && p.times !== '';
     const max = Math.min(items ? items.length : hasTimes ? +p.times || 0 : +p.max_iterations || 100, +p.max_iterations || 1000, 1000);
     const until = node.params?.until_expression;
+    const maxMs = (+p.max_minutes || 0) * 60000, t0 = Date.now();
     for (let i = 0; i < max; i++) {
+      // Dừng sớm nhưng vẫn chạy các bước sau vòng lặp (xuất báo cáo)
+      if (ctx.shouldFinish?.()) { ctx.log(`  ⏭ Dừng sớm theo yêu cầu sau ${i}/${max} vòng — chuyển sang bước tiếp theo`); break; }
+      if (maxMs && Date.now() - t0 >= maxMs) { ctx.log(`  ⏱ Hết ${p.max_minutes} phút sau ${i}/${max} vòng — chuyển sang bước tiếp theo`); break; }
       if (i > 0 && until) {
         const done = await ctx.page.evaluate(new Function('vars', `try { return !!(${until}); } catch (e) { return false; }`), ctx.vars);
         if (done) break;
@@ -188,6 +198,28 @@ export const NODES = {
       const r = await ctx.runGraph(p.first_body_node);
       if (r?.__end) return r;
     }
+  },
+  // Hỏi Claude qua Claude Code CLI đã đăng nhập trên máy (dùng gói thuê bao, không cần API key).
+  // Tắt toàn bộ công cụ: Claude chỉ trả lời chữ, không chạy lệnh / đọc ghi file.
+  async claude_prompt(p, n, ctx) {
+    const bin = [p.claude_path, process.env.HPBFLOW_CLAUDE, path.join(os.homedir(), '.local/bin/claude'), '/opt/homebrew/bin/claude', '/usr/local/bin/claude'].find(b => b && fs.existsSync(b));
+    if (!bin) throw new Error('Không tìm thấy Claude Code CLI (cài và đăng nhập: claude login)');
+    const prompt = typeof p.prompt === 'object' ? JSON.stringify(p.prompt) : String(p.prompt || '');
+    if (!prompt.trim()) throw new Error('prompt rỗng');
+    const args = ['-p', prompt, '--output-format', 'text', '--disallowedTools', 'Bash', 'Edit', 'Write', 'Read', 'Glob', 'Grep', 'WebFetch', 'WebSearch', 'NotebookEdit', 'Task', 'Agent'];
+    if (p.model) args.push('--model', String(p.model));
+    if (p.system) args.push('--append-system-prompt', String(p.system));
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'hpbflow-claude-'));
+    ctx.log('  🤖 Đang hỏi Claude…');
+    const out = await new Promise((res, rej) => execFile(bin, args, { cwd, timeout: (+p.timeout || 180) * 1000, maxBuffer: 10 * 1024 * 1024, env: { ...process.env, PATH: `${path.dirname(bin)}:/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin` } },
+      (e, so, se) => e ? rej(new Error('Claude lỗi: ' + (se || e.message).toString().slice(0, 300))) : res(String(so).trim())));
+    fs.rmSync(cwd, { recursive: true, force: true });
+    if (p.json) { // lấy khối JSON đầu tiên trong câu trả lời
+      const m = out.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, out];
+      const t = m[1].trim(); const i = Math.min(...['[', '{'].map(c => t.indexOf(c)).filter(x => x >= 0));
+      try { return JSON.parse(t.slice(i)); } catch (e) { throw new Error('Claude không trả JSON hợp lệ: ' + out.slice(0, 200)); }
+    }
+    return out;
   },
   async subflow(p, n, ctx) {
     const r = await ctx.runSubflow(p.flow_id || p.flow, p.vars || {});
@@ -375,7 +407,7 @@ export const NODE_DOCS = {
   wait_for_function: { desc: 'Chờ tới khi biểu thức JS trong trang đúng', params: 'expression (BIỂU THỨC, không return), timeout? ms, polling? ms' },
   eval_js: { desc: 'Chạy JS trong trang, phải return. Dùng để đọc trang / đánh dấu phần tử', params: 'code, output_var?, timeout?' },
   click: { desc: 'Bấm chuột thật', params: 'selector (chuỗi hoặc mảng dự phòng), timeout?, force?' },
-  type: { desc: 'Gõ vào ô nhập', params: 'selector, value, clear_first? (mặc định true), mode? auto|keystrokes, delay? ms giữa phím' },
+  type: { desc: 'Gõ vào ô nhập', params: 'selector, value, clear_first? (mặc định true), mode? auto|keystrokes, delay? ms giữa phím, caret_end? (keystrokes: gõ tiếp ở cuối ô, không bấm chuột)' },
   key_press: { desc: 'Nhấn phím', params: 'key, ví dụ "Escape", "Enter", "ctrl+a"' },
   hover: { desc: 'Di chuột lên phần tử', params: 'selector' },
   scroll: { desc: 'Cuộn trang', params: 'direction? up|down, amount? px | selector (cuộn tới phần tử)' },
@@ -385,11 +417,12 @@ export const NODE_DOCS = {
   screenshot: { desc: 'Chụp màn hình; output_var nhận đường dẫn file', params: 'save_path?, full_page?, emit? (hiện lên UI), output_var?' },
   return: { desc: 'Kết thúc flow, mọi params là kết quả. Có key "error" → flow báo lỗi', params: 'bất kỳ; error?, error_code?' },
   condition: { desc: 'Rẽ nhánh', params: 'expression ("{{vars.a}} == yes", "{{vars.n}} < 3", "{{vars.flag}}"), if_true, if_false' },
-  loop: { desc: 'Lặp thân vòng bắt đầu từ first_body_node tới node không có next', params: 'iterate_over? | times? | until_expression? (kiểm trước mỗi vòng trừ vòng đầu), item_var?, index_var?, first_body_node, max_iterations?' },
+  loop: { desc: 'Lặp thân vòng bắt đầu từ first_body_node tới node không có next', params: 'iterate_over? | times? | until_expression? (kiểm trước mỗi vòng trừ vòng đầu), item_var?, index_var?, first_body_node, max_iterations?, max_minutes? (hết giờ thì thoát vòng và chạy tiếp). Nút "Dừng & lấy kết quả" cũng thoát vòng như vậy' },
   set_var: { desc: 'Gán biến', params: 'key, value' },
   emit_progress: { desc: 'Ghi một dòng log lên UI', params: 'message' },
   human_pause: { desc: 'Dừng chờ người dùng bấm Tiếp tục trên UI', params: 'message, timeout? giây' },
   subflow: { desc: 'Chạy flow khác', params: 'flow_id, vars?, output_var?' },
+  claude_prompt: { desc: 'Hỏi Claude qua Claude Code CLI trên máy (gói thuê bao, không cần API key; công cụ bị tắt, chỉ trả chữ)', params: 'prompt, system?, model? (sonnet|opus|haiku), json? (true = parse JSON), timeout? giây (mặc định 180), output_var' },
   upload_file: { desc: 'Đẩy file vào input[type=file] (kể cả input ẩn)', params: 'selector?, path (chuỗi/mảng), wait_ms?' },
   upload_via_chooser: { desc: 'Bấm nút mở hộp chọn file rồi đưa file vào', params: 'trigger_selector, path, timeout?, wait_ms?, force?' },
   resolve_images: { desc: 'Biến ảnh (URL/đường dẫn/danh sách) thành mảng file local', params: 'images_var, output_var' },

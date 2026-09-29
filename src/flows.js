@@ -48,5 +48,8 @@ export function summarize(f) {
   const { nodes, groups, _file, ...rest } = f;
   const tags = f.tags || [];
   const group = f.group || tags[0] || (f.id.split('-')[0]);
-  return { ...rest, group, node_count: nodes?.length || 0, input_count: (f.inputs || []).length };
+  // gợi ý để giao diện hiện logo app của workflow (không gửi cả danh sách bước)
+  const app_hint = (nodes || []).filter(n => ['goto', 'subflow', 'claude_prompt', 'save_to_excel', 'read_from_excel', 'browser_session'].includes(n.type))
+    .map(n => ({ type: n.type, label: n.label, params: { url: n.params?.url, flow_id: n.params?.flow_id } }));
+  return { ...rest, group, node_count: nodes?.length || 0, input_count: (f.inputs || []).length, app_hint };
 }

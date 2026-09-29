@@ -71,5 +71,6 @@ server.tool('run_draft', 'Chạy thử một flow CHƯA lưu (không để lại
 server.tool('get_run_status', 'Xem trạng thái, log, output của lượt chạy; wait_seconds > 0 thì chờ tới khi xong', { run_id: z.string(), wait_seconds: z.number().optional() },
   tool(({ run_id, wait_seconds = 0 }) => waitRun(run_id, wait_seconds)));
 server.tool('stop_run', 'Dừng lượt chạy', { run_id: z.string() }, tool(({ run_id }) => api('POST', `/api/runs/${run_id}/stop`)));
+server.tool('finish_run', 'Dừng & lấy kết quả: vòng lặp thoát sau lượt hiện tại, flow vẫn chạy các bước xuất kết quả', { run_id: z.string() }, tool(({ run_id }) => api('POST', `/api/runs/${run_id}/finish`)));
 
 await server.connect(new StdioServerTransport());
