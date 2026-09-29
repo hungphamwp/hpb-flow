@@ -232,7 +232,7 @@ async function todoPage() {
   $('#main').innerHTML = `<div class="wrap tdx"><div class="tdx-grid">
     <div class="tdx-main">
       <header class="tdx-head">
-        <div class="tdx-title"><div class="tdx-hi">${hi}, Hưng</div><h1 id="tdTitle"></h1><span id="tdSub"></span></div>
+        <div class="tdx-title"><div class="tdx-hi">${hi}, Hưng</div><h1 id="tdTitle"></h1><span id="tdSub"></span><div class="tdx-stats" id="tdStats"></div></div>
         <div class="tdx-tools">
           <div class="tdx-nav"><button title="Ngày trước (←)" onclick="todoGo(-1)">‹</button><button id="tdTodayBtn" onclick="todoSet(tdToday())">Hôm nay</button><button title="Ngày sau (→)" onclick="todoGo(1)">›</button></div>
           <button class="karma" id="tdKarma" title="Karma: cấp độ, chuỗi ngày, huy hiệu" onclick="todoKarma(this)"></button>
@@ -272,6 +272,9 @@ function todoHead() {
   $('#tdTitle').textContent = dayTitle(day);
   $('#tdSub').textContent = dayLong(day) + (n ? ` · ${done}/${n} việc đã xong` : '');
   $('#tdTodayBtn').disabled = day === today;
+  // dải tóm tắt: nhìn số trước khi đọc danh sách
+  const open = items.filter(t => !t.done), hi = open.filter(t => tdP(t) <= 2).length, over = day === today ? state.todos.filter(t => !t.done && t.date < today).length : 0, xp = items.filter(t => t.done).reduce((s, t) => s + tdXp(t), 0);
+  const st$ = $('#tdStats'); if (st$) st$.innerHTML = `<span><b>${open.length}</b> cần làm</span><span class="${hi ? 'hi' : ''}"><b>${hi}</b> ưu tiên cao</span><span class="${over ? 'late' : ''}"><b>${over}</b> quá hạn</span><span class="xp"><b>+${xp}</b> XP</span>`;
   const lv = tdLevel(), st = tdStreak(), C = 2 * Math.PI * 10;
   $('#tdKarma').innerHTML = `<span class="kr"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" class="kb"/><circle cx="12" cy="12" r="10" class="kf" style="stroke-dasharray:${C};stroke-dashoffset:${C * (1 - lv.xp / lv.need)}"/></svg><b>${lv.L}</b></span><span>${lv.total.toLocaleString('vi-VN')} XP</span>${st ? `<span class="ks">🔥 ${st}</span>` : ''}`;
   if (day === today) todoBadge(n - done);
