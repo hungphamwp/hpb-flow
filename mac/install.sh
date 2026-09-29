@@ -17,8 +17,10 @@ osascript -e 'quit app "HPB Flow"' 2>/dev/null || true
 for _ in $(seq 1 20); do pgrep -f "$DST/Contents/Resources/app/src/server.js" >/dev/null || break; sleep 0.5; done
 pkill -f "$DST/Contents/Resources/app/src/server.js" 2>/dev/null || true
 
-rm -rf "$DST"
-ditto "$SRC" "$DST"
+# Thay NỘI DUNG bên trong, giữ nguyên thư mục .app: Dock nhớ app bằng bookmark trỏ tới đúng thư mục này,
+# xoá rồi chép lại (rm -rf + ditto) làm bookmark gãy → Dock hiện icon cấm dù đường dẫn không đổi.
+mkdir -p "$DST"
+rsync -a --delete "$SRC/" "$DST/"
 "$LSREG" -u "$SRC" 2>/dev/null || true
 "$LSREG" -f -R "$DST"
 touch "$DST"   # Dock đọc lại icon của bản mới
