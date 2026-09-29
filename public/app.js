@@ -245,7 +245,7 @@ async function todoPage() {
     </div>
     <aside class="tdx-side">
       <div class="sc sc-prog" id="sProg">
-        <div class="sring"><svg viewBox="0 0 100 100"><defs><linearGradient id="tdg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2f6bf0"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs><circle cx="50" cy="50" r="42" class="rbg"/><circle cx="50" cy="50" r="42" class="rfg" id="tdRing"/></svg><div class="sv"><b><span id="sPct">0</span><i>%</i></b><small id="sCnt"></small></div></div>
+        <div class="sring"><svg viewBox="0 0 100 100"><defs><linearGradient id="tdg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1a56db"/><stop offset="1" stop-color="#1a56db"/></linearGradient></defs><circle cx="50" cy="50" r="42" class="rbg"/><circle cx="50" cy="50" r="42" class="rfg" id="tdRing"/></svg><div class="sv"><b><span id="sPct">0</span><i>%</i></b><small id="sCnt"></small></div></div>
         <div class="swin">${stkImg('1f3c6', '', true)}</div>
         <div class="sp-txt"><b id="sHead"></b><span id="sSub"></span></div>
         <div class="segs" id="sSegs"></div>
@@ -579,7 +579,7 @@ function barChart(days) {
     const path = hgt ? `<path d="M${x},${P.t + ih} V${yy + r} Q${x},${yy} ${x + r},${yy} H${x + barW - r} Q${x + barW},${yy} ${x + barW},${yy + r} V${P.t + ih} Z" class="bar"/>` : '';
     return `<g class="col" data-tip="${lab}: ${d.n} lượt · ${d.ok} xong · ${d.err} lỗi"><rect x="${P.l + bw * i}" y="${P.t}" width="${bw}" height="${ih}" class="hit"/>${path}${i % 2 === 1 || i === days.length - 1 ? `<text x="${cx}" y="${H - 8}" class="ax" text-anchor="middle">${lab}</text>` : ''}</g>`;
   }).join('');
-  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Số lượt chạy mỗi ngày trong 14 ngày"><defs><linearGradient id="gbar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color="#1a56db"/></linearGradient></defs>${grid}<line x1="${P.l}" x2="${W - P.r}" y1="${P.t + ih}" y2="${P.t + ih}" class="base"/>${bars}</svg>`;
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Số lượt chạy mỗi ngày trong 14 ngày"><defs><linearGradient id="gbar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b76f0"/><stop offset="1" stop-color="#1a56db"/></linearGradient></defs>${grid}<line x1="${P.l}" x2="${W - P.r}" y1="${P.t + ih}" y2="${P.t + ih}" class="base"/>${bars}</svg>`;
 }
 function runTable(list) {
   if (!list.length) return '<p class="empty">Chưa có lượt chạy nào. Mở một workflow và bấm Chạy để bắt đầu.</p>';
