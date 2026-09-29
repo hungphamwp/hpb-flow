@@ -21,5 +21,11 @@ rm -rf "$DST"
 ditto "$SRC" "$DST"
 "$LSREG" -u "$SRC" 2>/dev/null || true
 "$LSREG" -f -R "$DST"
-open "$DST"
+touch "$DST"   # Dock đọc lại icon của bản mới
+# Mở lại app và chờ máy chủ lên; app không mở được thì Dock chỉ còn lối tắt tới bản cũ (hiện icon cấm)
+for i in 1 2 3; do
+  open "$DST"
+  for _ in $(seq 1 20); do curl -s -m 1 -o /dev/null http://127.0.0.1:4719/ && break 2; sleep 0.5; done
+done
+curl -s -m 2 -o /dev/null http://127.0.0.1:4719/ || { echo "Cài xong nhưng app chưa mở được — mở tay HPB Flow trong /Applications"; exit 1; }
 echo "Đã cài $DST"
