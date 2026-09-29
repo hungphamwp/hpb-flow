@@ -13,6 +13,7 @@ import { FLOW_GUIDE } from './docs.js';
 import { getSettings, saveSettings, rotateApiKey } from './settings.js';
 import { listAgents, setAgent } from './agents.js';
 import { mountApi, aiModels } from './api_v1.js';
+import { createAiNews } from './ainews.js';
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -201,6 +202,30 @@ app.get('/api/file', (req, res) => {
   if (![LIBRARY_DIR, OUTPUT_DIR, RUNS_DIR].some(d => p.startsWith(d))) return res.status(403).end();
   res.sendFile(p);
 });
+// ---- bài đăng video tự động (series "Bắt bệnh doanh nghiệp") — đọc meta.json từng tập trong OUTPUT_DIR/video
+app.get('/api/posts', wrap(() => {
+  // gộp mọi chuyên mục video tự động: mỗi chuyên mục một thư mục trong OUTPUT_DIR, mỗi tập một thư mục có meta.json
+  const SERIES = [['video', 'Bắt bệnh doanh nghiệp'], ['ai-news', 'Tin AI dùng ngay']];
+  return SERIES.flatMap(([sub, series]) => {
+    const base = path.join(OUTPUT_DIR, sub);
+    if (!fs.existsSync(base)) return [];
+    return fs.readdirSync(base)
+      .map(name => ({ name, dir: path.join(base, name), file: path.join(base, name, 'meta.json') }))
+      .filter(x => fs.existsSync(x.file))
+      .map(x => { try { return { ...JSON.parse(fs.readFileSync(x.file, 'utf8')), dir: x.dir, series }; } catch { return null; } })
+      .filter(Boolean);
+  }).sort((a, b) => new Date(b.created || 0) - new Date(a.created || 0));
+}));
+const VIDEO_AUTO_DIR = path.join(os.homedir(), 'websites', 'hpb-video-auto');
+app.post('/api/posts/refresh', wrap(() => new Promise((resolve, reject) => {
+  if (!fs.existsSync(path.join(VIDEO_AUTO_DIR, 'scripts', 'stats.mjs'))) return reject(new Error('Không tìm thấy scripts/stats.mjs'));
+  const env = { ...process.env, PATH: `/opt/homebrew/bin:/usr/local/bin:${path.join(os.homedir(), '.local/bin')}:${process.env.PATH}` };
+  execFile('node', ['scripts/stats.mjs'], { cwd: VIDEO_AUTO_DIR, env, timeout: 90000 }, (err, stdout, stderr) => {
+    const m = /RESULT (\{.*\})/.exec(stdout || '');
+    if (err && !m) return reject(new Error((stderr || err.message).split('\n').slice(-3).join(' · ')));
+    resolve(m ? JSON.parse(m[1]) : { ok: true });
+  });
+})));
 app.post('/api/choose-file', wrap(() => new Promise((resolve, reject) => {
   const kind = 'file';
   const script = `tell application "Finder"\nactivate\nset fs to choose ${kind} with prompt "Chọn file" with multiple selections allowed\nend tell\nset out to ""\nrepeat with f in fs\nset out to out & POSIX path of (f as alias) & linefeed\nend repeat\nreturn out`;
@@ -264,6 +289,10 @@ app.post('/api/research/run', wrap(() => {
   spawnResearch(process.execPath, [RESEARCH_SCRIPT], { cwd: path.dirname(path.dirname(RESEARCH_SCRIPT)), stdio: ['ignore', logFd, logFd], detached: true }).unref();
   return { ok: true };
 }));
+// ---- Tin tức & video AI: chỉ cập nhật khi người dùng bấm làm mới
+const aiNews = createAiNews(path.join(OUTPUT_DIR, 'ainews'));
+app.get('/api/ainews', wrap(() => aiNews.get()));
+app.post('/api/ainews/refresh', wrap(() => aiNews.refresh()));
 // ---- việc cần làm mỗi ngày (to-do): lưu file todos.json trong thư mục dữ liệu của app
 const TODOS = path.join(path.dirname(RUNS_DIR), 'todos.json');
 const readTodos = () => { try { return JSON.parse(fs.readFileSync(TODOS, 'utf8')); } catch { return []; } };

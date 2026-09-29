@@ -1006,3 +1006,82 @@ input:focus,select:focus,textarea:focus{box-shadow:0 0 0 3px rgba(26,86,219,.12)
 .tdx-nav button:first-child{order:2} .tdx-nav #tdTodayBtn{order:1;margin-right:6px} .tdx-nav button:last-child{order:3}
 .tdx-nav button:hover:not(:disabled){background:var(--soft)}
 .tdx-nav #tdTodayBtn:disabled{background:var(--panel);color:var(--muted);cursor:default;opacity:1}
+
+/* ---------- tinh chỉnh trang Bài đăng: thời gian đăng, xếp hạng, số liệu gọn */
+.pTotalViews{color:var(--brand-ink);font-weight:700}
+.pLive{display:flex;align-items:center;gap:6px}
+.pdot{width:7px;height:7px;border-radius:50%;background:#10b981;box-shadow:0 0 0 0 rgba(16,185,129,.6);animation:pPulse 2s ease-out infinite}
+@keyframes pPulse{0%{box-shadow:0 0 0 0 rgba(16,185,129,.5)}70%{box-shadow:0 0 0 6px rgba(16,185,129,0)}100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}}
+.prank{position:absolute;left:8px;top:8px;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:800;color:#fff;pointer-events:none;box-shadow:0 2px 6px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.4);border:1.5px solid rgba(255,255,255,.6)}
+.prank.r0{width:30px;height:30px;font-size:15px;background:linear-gradient(155deg,#ffe08a,#f5b942 55%,#c9861a);box-shadow:0 3px 8px rgba(180,120,0,.45),inset 0 1px 0 rgba(255,255,255,.6)}
+.prank.r1{background:linear-gradient(155deg,#f1f4f8,#c7ccd4 55%,#8b929c)}
+.prank.r2{background:linear-gradient(155deg,#e8b48a,#c97f45 55%,#8a5223)}
+.prank.r3{background:linear-gradient(155deg,#8b93a3,#5b6472)}
+
+/* ---------- v5 (30/09/2026) — thêm chiều sâu cho khối tiến độ/cấp độ/dải ngày trang "Việc hôm nay",
+   vẫn tối giản (không màu mè) nhưng có bóng nhẹ + khoảng cách rộng hơn để đỡ phẳng/nhạt như v4. */
+.tdx-side .sc{border-radius:16px;border-color:var(--line-2);box-shadow:0 1px 2px rgba(16,24,40,.04),0 10px 24px -18px rgba(16,24,40,.18);transition:box-shadow .15s}
+.tdx-side .sc:hover{box-shadow:0 1px 2px rgba(16,24,40,.05),0 14px 28px -16px rgba(16,24,40,.22)}
+
+/* thẻ tiến độ: nền hơi ánh sáng để tách khỏi nền trang, vòng tròn có glow nhẹ theo màu thương hiệu */
+.sc-prog{background:linear-gradient(175deg,#fff 0%,#f8faff 100%);border-color:var(--line-2);padding:20px 22px}
+.sc-prog.full{background:linear-gradient(175deg,#fff 0%,#f3fbf7 100%)}
+.sring .rbg{stroke:var(--line-2)}
+.sring .rfg{filter:drop-shadow(0 2px 5px rgba(26,86,219,.35))}
+.sc-prog.full .sring .rfg{filter:drop-shadow(0 2px 5px rgba(16,185,129,.35))}
+.sring .sv b{font-size:25px}
+.sp-txt b{font-size:15.5px;margin-bottom:5px}
+.sp-txt span{color:var(--ink-2);line-height:1.55}
+.sp-add{box-shadow:0 4px 10px -4px rgba(26,86,219,.45)}
+
+/* thẻ cấp độ: khối số có chiều sâu (gradient một tông xanh, không phải nhiều màu), thanh XP dày và bo tròn hẳn */
+.kp-lv{width:44px;height:44px;border-radius:13px;background:linear-gradient(160deg,#3b76f0,#1a56db 75%);color:#fff;box-shadow:0 5px 12px -4px rgba(26,86,219,.5),inset 0 1px 0 rgba(255,255,255,.25)}
+.sk-top b{font-size:15.5px}
+.kp-bar{height:7px;border-radius:99px;margin:16px 0 8px;background:var(--line-2)}
+.kp-bar i{border-radius:99px;background:linear-gradient(90deg,#3b76f0,#1a56db)}
+.kp-sub{font-size:12px}
+.sk-streak{box-shadow:inset 0 0 0 1px var(--line-2)}
+.sk-streak.hot{box-shadow:inset 0 0 0 1px #fbdcc4}
+
+/* dải chọn ngày: thanh nền có bóng để nổi khỏi trang, ngày đang chọn có độ nổi thật (không chỉ đổi màu phẳng) */
+.tdx-week{border-radius:14px;box-shadow:0 1px 2px rgba(16,24,40,.04),0 8px 20px -16px rgba(16,24,40,.16)}
+.wd{border-radius:10px;transition:background .15s,box-shadow .15s,transform .12s}
+.wd:hover{transform:translateY(-1px)}
+.wd b{font-variant-numeric:tabular-nums}
+.wd.on{box-shadow:0 4px 12px -4px rgba(26,86,219,.55)}
+.wd.on:hover{transform:translateY(-1px)}
+.wd::after{width:5px;height:5px;transition:background .15s}
+.wd.today:not(.on){box-shadow:inset 0 0 0 1.5px var(--brand)}
+.ppost-at{display:flex;align-items:center;gap:6px;margin:2px 0 10px;font-size:11.5px;color:var(--muted)}
+.ppost-at .i{width:13px;height:13px;margin:0;opacity:.7}
+.pv-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.pv-stats div{text-align:center;padding:10px 6px;border-radius:10px;background:var(--panel-2);border:1px solid var(--line-2)}
+.pv-stats b{display:block;font-size:16px;color:var(--ink)}
+.pv-stats small{font-size:10.5px;color:var(--muted)}
+.pv-when{display:block;font-style:normal;font-size:10.5px;color:var(--muted);margin-top:2px;margin-left:auto}
+.acts .btnlink{flex-direction:column;align-items:flex-start!important;gap:2px!important}
+
+/* ---------- v5: thẻ Bài đăng gọn, đều chiều cao, không tràn chữ */
+.pgrid{grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:20px;align-items:stretch}
+.pcard{display:flex;flex-direction:column;border-color:var(--line-2);border-radius:16px;box-shadow:0 1px 2px rgba(16,24,40,.04),0 10px 24px -18px rgba(16,24,40,.2)}
+.pcard:hover{box-shadow:0 2px 4px rgba(16,24,40,.05),0 18px 32px -16px rgba(16,24,40,.28)}
+.pcard-media{aspect-ratio:9/15;flex:none}
+.pcard-body{display:flex;flex-direction:column;flex:1;padding:14px 16px 16px;gap:0}
+.pcard-body>b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.8em;font-size:14.5px;line-height:1.4;margin-bottom:10px}
+.ptag{flex-wrap:nowrap;min-width:0;gap:8px;margin-bottom:10px}
+.ptag .chip{max-width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto}
+.ptag .muted{flex:none;white-space:nowrap}
+.ppost-at{display:flex;align-items:center;gap:6px;margin-bottom:12px;font-size:12px;color:var(--muted)}
+.pplat{display:grid;grid-template-columns:1fr;gap:6px;margin-top:auto}
+.ppill{width:100%;min-width:0;padding:6px 12px 6px 8px;white-space:nowrap}
+.ppill .pstat{overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.ppill .pstat.wait{color:var(--muted);font-style:normal}
+.ppill.off .pstat{color:var(--faint)}
+.pdur{left:10px;bottom:10px}
+.toolbar[style*="margin-bottom:14px"]{padding-left:0;padding-right:0;border-bottom:0}
+.ptag{flex-wrap:wrap;row-gap:6px}
+.ptag .chip{max-width:none;overflow:visible;white-space:nowrap}
+.pscore{top:auto;right:10px;bottom:10px;font-size:11.5px;padding:3px 9px}
+.prank{top:auto;bottom:10px;left:10px}
+.prank.r0{bottom:8px;left:8px}
+.pcard-media:has(.prank) .pdur{left:48px}

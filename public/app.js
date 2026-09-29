@@ -82,6 +82,7 @@ const NAV = [
   { g: 'Tăng trưởng', items: [
     { page: 'reports', label: 'Radar Facebook', logo: 'facebook' },
     { page: 'posts', label: 'Bài đăng', icon: 'play' },
+    { page: 'ainews', label: 'Tin tức AI', icon: 'sparkles' },
     { page: 'research', label: 'Nghiên cứu nội dung', icon: 'radar' },
     { page: 'leads', label: 'Khách tiềm năng', icon: 'target', soon: true },
     { page: 'zalo', label: 'Chatbot Zalo', logo: 'zalo', soon: true },
@@ -144,7 +145,7 @@ async function route() {
   const [, page = 'overview', a, b] = location.hash.split('/');
   const navPage = { run: 'runs', api: 'settings', engines: 'settings' }[page] || page;
   document.querySelectorAll('#nav a[data-page]').forEach(x => x.classList.toggle('active', x.dataset.page === navPage));
-  const fn = SOON[page] ? () => soonPage(page) : { overview, todo: todoPage, posts, research: (...x) => researchPage(...x), reports: fbReport, flows: a ? flowDetail : flowList, runs: a ? runDetail : runList, run: runView, library, profiles, proxies, engines, api: apiPage, settings }[page] || overview;
+  const fn = SOON[page] ? () => soonPage(page) : { overview, todo: todoPage, posts, research: (...x) => researchPage(...x), ainews: (...x) => aiNewsPage(...x), reports: fbReport, flows: a ? flowDetail : flowList, runs: a ? runDetail : runList, run: runView, library, profiles, proxies, engines, api: apiPage, settings }[page] || overview;
   if (['library', 'proxies'].includes(page)) refreshNavData();
   const m = $('#main'); m.className = ''; m.scrollTop = 0; document.onkeydown = null;
   try { if (!state.flows.length) await loadFlows(); await fn(a, b); } catch (e) { m.innerHTML = `<div class="wrap"><div class="warn">${I('alert')}${esc(e.message)}</div></div>`; }
@@ -1547,6 +1548,12 @@ setInterval(() => {
   if (document.hidden || !/^#\/reports/.test(location.hash) || !$('#main')) return;
   const y = $('#main').scrollTop; fbReport().then(() => { $('#main').scrollTop = y; }).catch(() => {});
 }, 45000);
+// trang Bài đăng tự làm mới mỗi 30 giây — số liệu do lịch nền `do-chi-so-video` cập nhật ngầm mỗi ~20 phút,
+// trang chỉ đọc lại cache nên rẻ, không cần bấm gì (Hưng yêu cầu "mọi thứ phải tự động chứ không thủ công")
+setInterval(() => {
+  if (document.hidden || !/^#\/posts/.test(location.hash) || !$('#main')) return;
+  const y = $('#main').scrollTop; posts().then(() => { $('#main').scrollTop = y; }).catch(() => {});
+}, 30000);
 // đồng hồ chạy từng giây khi đang có lượt chạy
 setInterval(() => {
   const x = state.runTl; if (!x || !state.canvas || !(x.r.status === 'running' || x.r.status === 'paused')) return;
@@ -1656,10 +1663,27 @@ const POST_PLATFORMS = [
   { key: 'youtube', label: 'YouTube' },
   { key: 'tiktok', label: 'TikTok' },
 ];
-function postStat(s) { if (!s) return ''; const parts = []; if (s.views != null) parts.push(`${s.views.toLocaleString('vi-VN')} xem`); if (s.likes) parts.push(`${s.likes} thích`); if (s.comments) parts.push(`${s.comments} bình luận`); return parts.join(' · '); }
+const fmtN = n => n == null ? '' : Number(n).toLocaleString('vi-VN');
+const fmtK = n => n == null ? '' : n >= 1e6 ? (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'K' : String(n);
+function postStat(s) { if (!s) return ''; const parts = []; if (s.views != null) parts.push(`${fmtN(s.views)} xem`); if (s.likes) parts.push(`${fmtN(s.likes)} thích`); if (s.comments) parts.push(`${fmtN(s.comments)} bình luận`); return parts.join(' · '); }
 function postScore(p) {
   const t = p.stats?.tiktok || {}, y = p.stats?.youtube || {};
   return (t.views || 0) + (t.likes || 0) * 8 + (t.comments || 0) * 15 + (y.views || 0) + (y.comments || 0) * 15;
+}
+function postTotalViews(p) { return (p.stats?.tiktok?.views || 0) + (p.stats?.youtube?.views || 0); }
+// mốc đăng bài sớm nhất trong 2 nền tảng (giờ thật, không phải giờ tạo video)
+function postedAt(p) {
+  const times = [p.posted?.youtube?.at, p.posted?.tiktok?.at].filter(Boolean).map(t => +new Date(t));
+  return times.length ? Math.min(...times) : null;
+}
+const WD = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+function fmtPostedAt(ts) {
+  if (!ts) return '';
+  const d = new Date(ts), hh = String(d.getHours()).padStart(2, '0'), mm = String(d.getMinutes()).padStart(2, '0');
+  const today = new Date().setHours(0, 0, 0, 0), day = new Date(d).setHours(0, 0, 0, 0);
+  const diff = Math.round((today - day) / 86400000);
+  const when = diff === 0 ? 'Hôm nay' : diff === 1 ? 'Hôm qua' : `${WD[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`;
+  return `${when} · ${hh}:${mm}`;
 }
 async function posts() {
   crumbs(['Bài đăng']);
@@ -1667,31 +1691,39 @@ async function posts() {
   state.posts = { sort: state.posts?.sort || 'moi', ...state.posts };
   const sorted = [...list].sort((a, b) => state.posts.sort === 'diem' ? postScore(b) - postScore(a) : new Date(b.created || 0) - new Date(a.created || 0));
   const totalPosted = list.filter(p => p.posted && Object.keys(p.posted).length).length;
-  $('#main').innerHTML = `<div class="wrap">` + pageHead('Bài đăng', `Các tập video series "Bắt bệnh doanh nghiệp" đã tạo · ${list.length} tập · ${totalPosted} đã đăng`,
+  const totalViews = list.reduce((s, p) => s + postTotalViews(p), 0);
+  const lastAt = Math.max(0, ...list.flatMap(p => [p.stats?.tiktok?.at, p.stats?.youtube?.at].filter(Boolean)));
+  $('#main').innerHTML = `<div class="wrap">` + pageHead('Bài đăng', `${[...new Set(list.map(p => p.series).filter(Boolean))].map(x => `"${x}"`).join(' · ') || 'Video tự động'} · ${list.length} video · ${totalPosted} đã đăng${totalViews ? ` · <b class="pTotalViews">${fmtN(totalViews)}</b> tổng lượt xem` : ''}`,
     `<button onclick="api('POST','/api/open-path',{path:${j(list[0]?.dir ? list[0].dir.replace(/\/[^/]+$/, '') : '~/Downloads/HPBFlow/video')}})">${I('folder')} Mở thư mục</button>`) + `
   <div class="toolbar" style="margin-bottom:14px"><div class="seg"><button class="${state.posts.sort === 'moi' ? 'on' : ''}" onclick="state.posts.sort='moi';posts()">Mới nhất</button><button class="${state.posts.sort === 'diem' ? 'on' : ''}" onclick="state.posts.sort='diem';posts()">Điểm tương tác</button></div>
-    <span class="muted small" style="margin-left:auto">Đăng ${appStack(['youtube', 'tiktok'], 2, 'xs')} YouTube Shorts + TikTok, tự động mỗi ngày lúc 19:00</span></div>
-  <div class="pgrid">${sorted.map(postCard).join('') || '<p class="empty">Chưa có tập nào. Quy trình tự động sẽ tạo tập đầu tiên vào 19:00.</p>'}</div></div>`;
+    <span class="muted small pLive" style="margin-left:auto" title="YouTube qua API chính thức (mỗi 1 phút), TikTok qua trình duyệt (mỗi 5 phút) — trang tự làm mới mỗi 30 giây, không cần bấm gì"><i class="pdot"></i>${I('refresh')} Cập nhật ${lastAt ? ago(lastAt) : 'chưa có'} · tập mới tự đăng mỗi ngày lúc 19:00</span></div>
+  <div class="pgrid">${sorted.map((p, i) => postCard(p, state.posts.sort === 'diem' ? i : null)).join('') || '<p class="empty">Chưa có tập nào. Quy trình tự động sẽ tạo tập đầu tiên vào 19:00.</p>'}</div></div>`;
 }
-function postCard(p) {
+function postCard(p, rank) {
   const cover = p.dir ? `/api/file?path=${encodeURIComponent(p.dir + '/cover.jpg')}` : '';
   const video = p.dir ? `/api/file?path=${encodeURIComponent(p.dir + '/video.mp4')}` : '';
-  const score = postScore(p);
+  const score = postScore(p), at = postedAt(p);
   return `<article class="pcard" onclick='postPreview(${j(p)})'>
-    <div class="pcard-media"><img src="${cover}" loading="lazy" onerror="this.style.display='none'"><video src="${video}" muted loop preload="none" onmouseenter="this.play().catch(()=>{})" onmouseleave="this.pause();this.currentTime=0" onclick="event.stopPropagation()"></video>
-      <span class="pdur">${fmtS(Math.round(p.duration || 0))}</span>${score ? `<span class="pscore" title="Điểm tương tác quy đổi">🔥 ${score}</span>` : ''}</div>
-    <div class="pcard-body"><b>${esc(p.title || p.topic?.pain || 'Chưa có tiêu đề')}</b>
-      <div class="ptag">${p.topic ? `<span class="chip ${p.topic.hpb ? 'info' : ''}">${p.topic.hpb ? '●' : '○'} ${esc(p.topic.group)}</span>` : ''}${p.ep ? `<span class="muted small">Tập ${p.ep}</span>` : ''}</div>
-      <div class="pplat">${POST_PLATFORMS.map(pl => { const posted = p.posted?.[pl.key], st = p.stats?.[pl.key]; return `<a class="ppill ${posted ? 'on' : 'off'}" href="${posted?.url || '#'}" target="_blank" rel="noopener" onclick="event.stopPropagation()${posted ? '' : ';return false'}" title="${posted ? 'Xem bài đã đăng' : 'Chưa đăng'}">${appTile(pl.key, 'xs')}${st ? `<span class="pstat">${postStat(st)}</span>` : posted ? '' : '<span class="pstat">chưa đăng</span>'}</a>`; }).join('')}</div></div></article>`;
+    <div class="pcard-media"><img src="${cover}" loading="lazy" onerror="this.style.display='none'"><video src="${video}" muted loop preload="none" onmouseenter="this.play().catch(()=>{})" onmouseleave="this.pause();this.currentTime=0"></video>
+      <span class="pdur">${fmtS(Math.round(p.duration || 0))}</span>
+      ${rank != null ? `<span class="prank r${Math.min(rank,3)}">${rank + 1}</span>` : ''}
+      ${score ? `<span class="pscore" title="Điểm tương tác quy đổi: xem + thích×8 + bình luận×15">🔥 ${fmtK(score)}</span>` : ''}</div>
+    <div class="pcard-body">
+      <b>${esc(p.title || p.topic?.pain || 'Chưa có tiêu đề')}</b>
+      <div class="ptag">${p.series ? `<span class="chip ${p.series === 'Tin AI dùng ngay' ? 'ok' : ''}">${esc(p.series)}</span>` : ''}${!p.topic && p.tag ? `<span class="chip">${esc(p.tag)}</span>` : ''}${p.topic ? `<span class="chip ${p.topic.hpb ? 'info' : ''}" title="${esc(p.topic.group)}">${p.topic.hpb ? '●' : '○'} ${esc(p.topic.group)}</span>` : ''}${p.ep ? `<span class="muted small">Tập ${p.ep}</span>` : ''}</div>
+      ${at ? `<div class="ppost-at">${I('calendar')}<span>Đăng ${fmtPostedAt(at)}</span></div>` : ''}
+      <div class="pplat">${POST_PLATFORMS.map(pl => { const posted = p.posted?.[pl.key], st = p.stats?.[pl.key]; return `<a class="ppill ${posted ? 'on' : 'off'}" href="${posted?.url || '#'}" target="_blank" rel="noopener" onclick="event.stopPropagation()${posted ? '' : ';return false'}" title="${posted ? 'Xem bài đã đăng · ' + fmtPostedAt(+new Date(posted.at)) : 'Chưa đăng'}">${appTile(pl.key, 'xs')}${st ? `<span class="pstat">${postStat(st)}</span>` : posted ? '<span class="pstat wait">Đã đăng · chờ số liệu</span>' : '<span class="pstat">Chưa đăng</span>'}</a>`; }).join('')}</div></div></article>`;
 }
 function postPreview(p) {
   const cover = p.dir ? `/api/file?path=${encodeURIComponent(p.dir + '/cover.jpg')}` : '';
   const video = p.dir ? `/api/file?path=${encodeURIComponent(p.dir + '/video.mp4')}` : '';
+  const score = postScore(p), views = postTotalViews(p);
   modal(`<div class="pv-grid"><video src="${video}" poster="${cover}" controls autoplay style="width:100%;border-radius:12px;background:#111;max-height:70vh"></video>
     <div><h3 style="margin-top:0">${esc(p.title || '')}</h3>
       ${p.topic ? `<p class="small muted">${p.topic.hpb ? '●' : '○'} ${esc(p.topic.group)} — <i>${esc(p.topic.pain)}</i></p>` : ''}
+      ${views ? `<div class="pv-stats"><div><b>${fmtN(views)}</b><small>tổng lượt xem</small></div><div><b>🔥 ${fmtK(score)}</b><small>điểm tương tác</small></div><div><b>${fmtS(Math.round(p.duration || 0))}</b><small>thời lượng</small></div></div>` : ''}
       <p class="small" style="white-space:pre-wrap">${esc(p.text || p.caption || '')}</p>
-      <div class="acts" style="flex-direction:column;align-items:stretch;gap:8px">${POST_PLATFORMS.map(pl => { const posted = p.posted?.[pl.key], st = p.stats?.[pl.key]; return posted ? `<a class="btnlink" href="${posted.url}" target="_blank" rel="noopener">${appTile(pl.key, 'xs')} Xem trên ${pl.label}${st ? ` · ${postStat(st)}` : ''}</a>` : `<span class="muted small">${appTile(pl.key, 'xs')} Chưa đăng lên ${pl.label}</span>`; }).join('')}</div>
+      <div class="acts" style="flex-direction:column;align-items:stretch;gap:8px">${POST_PLATFORMS.map(pl => { const posted = p.posted?.[pl.key], st = p.stats?.[pl.key]; return posted ? `<a class="btnlink" href="${posted.url}" target="_blank" rel="noopener">${appTile(pl.key, 'xs')} Xem trên ${pl.label}${st ? ` · ${postStat(st)}` : ''}<em class="pv-when">Đăng ${fmtPostedAt(+new Date(posted.at))}</em></a>` : `<span class="muted small">${appTile(pl.key, 'xs')} Chưa đăng lên ${pl.label}</span>`; }).join('')}</div>
       <button style="margin-top:14px" onclick="api('POST','/api/open-path',{path:${j(p.dir || '')}})">${I('folder')} Mở thư mục</button>
     </div></div>`);
 }
