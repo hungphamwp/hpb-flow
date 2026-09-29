@@ -289,7 +289,7 @@ function todoSide() {
   const xpDay = items.filter(t => t.done).reduce((s, t) => s + tdXp(t), 0), xpLeft = items.filter(t => !t.done).reduce((s, t) => s + tdXp(t), 0);
   const lv = tdLevel(), st = tdStreak(), best = tdBestStreak();
   $('#sHead').innerHTML = full ? `<span class="okp">${I('check')} Hoàn thành 100%</span>${day === today ? 'Ngày trọn vẹn!' : 'Đã xong hết việc'}` : !n ? (day === today ? 'Bắt đầu ngày mới' : 'Chưa có việc') : left === 1 ? 'Còn 1 việc nữa thôi' : `Còn ${left} việc`;
-  $('#sSub').innerHTML = full ? `${n}/${n} việc · <em>+${xpDay} XP</em>${st && day === today ? ` · chuỗi ${st} ngày` : ''}` : !n ? `Ghi ra vài việc quan trọng nhất hôm nay.<button class="sp-add" onclick="todoOpenAdd()">${I('plus')}Thêm việc<kbd>Q</kbd></button>` : `<em>+${xpDay} XP</em> đã nhận${xpLeft ? ` · còn ${xpLeft} XP chờ bạn` : ''}`;
+  $('#sSub').innerHTML = full ? `${n}/${n} việc · <em>+${xpDay} XP</em>${st && day === today ? ` · chuỗi ${st} ngày` : ''}` : !n ? `Ghi ra vài việc quan trọng nhất hôm nay.<button class="sp-add" onclick="todoOpenAdd()">${I('plus')}Thêm việc<kbd>Q</kbd></button>` : `<em>+${xpDay} XP</em> đã nhận${xpLeft ? ` · còn ${xpLeft} XP` : ''}`;
   const seg = [...items].sort((a, b) => (b.done - a.done) || tdP(a) - tdP(b));
   $('#sSegs').innerHTML = n && n <= 14 ? seg.map(t => `<i class="${t.done ? 'on' : ''}"></i>`).join('') : n ? `<i class="on" style="flex:${done || .001}"></i><i style="flex:${left || .001}"></i>` : '';
   $('#sKarma').innerHTML = `<div class="sk-top"><div class="kp-lv">${lv.L}</div><div><small>Cấp ${lv.L}</small><b>${esc(lv.title)}</b></div></div>
@@ -305,7 +305,7 @@ function todoWeek() {
   const day = state.todoDay, today = tdToday(), mon = dayShift(day, -((dayDate(day).getDay() + 6) % 7));
   $('#tdWeek').innerHTML = `<button class="wa" title="Tuần trước" onclick="todoGo(-7)">‹</button>` + [...Array(7)].map((_, i) => {
     const k = dayShift(mon, i), a = tdOf(k), d = a.filter(t => t.done).length, p = a.length ? d / a.length : 0, C = 2 * Math.PI * 17;
-    return `<button class="wd ${k === day ? 'on' : ''} ${k === today ? 'today' : ''} ${a.length ? 'has' : ''} ${tdFull(k) ? 'full' : ''}" onclick='todoSet(${j(k)})' title="${esc(dayLong(k))}${a.length ? ` · ${d}/${a.length} việc` : ''}"><span>${DOW_S[dayDate(k).getDay()]}</span><b><svg viewBox="0 0 38 38"><circle cx="19" cy="19" r="17" style="stroke-dasharray:${C};stroke-dashoffset:${C * (1 - p)}"/></svg><u>${+k.slice(8)}</u></b></button>`;
+    return `<button class="wd ${k === day ? 'on' : ''} ${k === today ? 'today' : ''} ${a.length ? 'has' : ''} ${tdFull(k) ? 'full' : ''}" onclick='todoSet(${j(k)})' aria-label="${esc(dayLong(k))}${a.length ? ` · ${d}/${a.length} việc` : ''}"><span>${DOW_S[dayDate(k).getDay()]}</span><b><svg viewBox="0 0 38 38"><circle cx="19" cy="19" r="17" style="stroke-dasharray:${C};stroke-dashoffset:${C * (1 - p)}"/></svg><u>${+k.slice(8)}</u></b></button>`;
   }).join('') + `<button class="wa" title="Tuần sau" onclick="todoGo(7)">›</button>`;
 }
 function tdRow(t) {

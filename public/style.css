@@ -987,3 +987,22 @@ input:focus,select:focus,textarea:focus{box-shadow:0 0 0 3px rgba(26,86,219,.12)
 .sk-top b{font-size:15px;font-weight:650;letter-spacing:-.01em}
 .kp-bar{height:4px;margin:14px 0 6px;background:var(--soft)}
 .kp-sub{font-size:11.5px;font-variant-numeric:tabular-nums}
+/* thẻ tiến độ: một chỉ báo (vòng tròn), bỏ thanh ngang trùng lặp */
+.sc-prog .segs{display:none}
+.sc-prog{padding:18px 20px;gap:0 16px;grid-template-columns:76px minmax(0,1fr)}
+.sring{width:76px;height:76px}
+.sring circle{stroke-width:5}
+.sring .sv b{font-size:22px;font-weight:700}
+.sring .sv b i{font-size:10px}
+.sring .sv small{font-size:10px;margin-top:1px}
+.sp-txt b{font-size:14.5px;margin-bottom:4px}
+.sp-txt span{font-size:12.5px;color:var(--muted)}
+.sp-txt em{font-weight:600}
+/* điều hướng ngày kiểu Google Calendar: nút Hôm nay riêng + hai mũi tên */
+.tdx-nav{border:0;background:transparent;gap:4px;overflow:visible;box-shadow:none;align-items:center}
+.tdx-nav button{height:32px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);font-size:13px;font-weight:600;padding:0 14px}
+.tdx-nav button+button{border-left:1px solid var(--line)}
+.tdx-nav button:first-child,.tdx-nav button:last-child{width:32px;padding:0;font-size:16px;color:var(--ink-2)}
+.tdx-nav button:first-child{order:2} .tdx-nav #tdTodayBtn{order:1;margin-right:6px} .tdx-nav button:last-child{order:3}
+.tdx-nav button:hover:not(:disabled){background:var(--soft)}
+.tdx-nav #tdTodayBtn:disabled{background:var(--panel);color:var(--muted);cursor:default;opacity:1}
