@@ -1,7 +1,9 @@
 import express from 'express';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
+import { spawn as spawnResearch } from 'node:child_process';
 import { randomUUID, createHmac, timingSafeEqual } from 'node:crypto';
 import { APP_DIR, OUTPUT_DIR, LIBRARY_DIR, RUNS_DIR, PROFILES_DIR, PORT, HOST } from './paths.js';
 import { listFlows, getFlow, saveFlow, deleteFlow, summarize } from './flows.js';
@@ -244,6 +246,23 @@ app.get('/api/reports/fb', wrap(() => {
   const groups = Object.entries(stats).map(([id, h]) => ({ id, name: h.name, lan_quet: h.lan_quet || 0, bai: h.bai || 0, lead_cao: h.lead_cao || 0, lead_tb: h.lead_tb || 0,
     rac: h.bai_quet ? Math.round(h.rac / h.bai_quet * 100) : null, tuong_tac: h.eng_n ? Math.round(h.eng_sum / h.eng_n) : null, lan_cuoi: h.lan_cuoi || '' }));
   return { comments: rd('binh-luan-lich-su.json', []).slice(-500).reverse(), runs: rd('tu-dong-lich-su.json', []).slice(-300).reverse(), groups, sheet };
+}));
+// ---- Nghiên cứu nội dung: số liệu thật YouTube/TikTok + kênh mình + kết luận Claude.
+// Thu thập/phân tích nằm ở ~/websites/hpb-ai-news/scripts/research.mjs, ghi ra OUTPUT_DIR/research/*.json; app chỉ đọc + bấm chạy.
+const RESEARCH_DIR = path.join(OUTPUT_DIR, 'research'), RESEARCH_SCRIPT = path.join(os.homedir(), 'websites', 'hpb-ai-news', 'scripts', 'research.mjs');
+const readRes = (f, d) => { try { return JSON.parse(fs.readFileSync(path.join(RESEARCH_DIR, f), 'utf8')); } catch { return d; } };
+app.get('/api/research', wrap(() => {
+  let history = []; try { history = fs.readdirSync(path.join(RESEARCH_DIR, 'history')).filter(f => f.endsWith('.json')).sort().reverse(); } catch { /* chưa có */ }
+  return { data: readRes('latest.json', null), status: readRes('status.json', null), history, available: fs.existsSync(RESEARCH_SCRIPT) };
+}));
+app.post('/api/research/run', wrap(() => {
+  const st = readRes('status.json', null);
+  if (st?.running && Date.now() - new Date(st.at) < 30 * 60e3) throw new Error('Đang nghiên cứu, chờ lượt này xong');
+  if (!fs.existsSync(RESEARCH_SCRIPT)) throw new Error('Không thấy ' + RESEARCH_SCRIPT);
+  fs.mkdirSync(RESEARCH_DIR, { recursive: true });
+  const logFd = fs.openSync(path.join(RESEARCH_DIR, 'run.log'), 'a');
+  spawnResearch(process.execPath, [RESEARCH_SCRIPT], { cwd: path.dirname(path.dirname(RESEARCH_SCRIPT)), stdio: ['ignore', logFd, logFd], detached: true }).unref();
+  return { ok: true };
 }));
 // ---- việc cần làm mỗi ngày (to-do): lưu file todos.json trong thư mục dữ liệu của app
 const TODOS = path.join(path.dirname(RUNS_DIR), 'todos.json');

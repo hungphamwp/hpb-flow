@@ -82,6 +82,7 @@ const NAV = [
   { g: 'Tăng trưởng', items: [
     { page: 'reports', label: 'Radar Facebook', logo: 'facebook' },
     { page: 'posts', label: 'Bài đăng', icon: 'play' },
+    { page: 'research', label: 'Nghiên cứu nội dung', icon: 'radar' },
     { page: 'leads', label: 'Khách tiềm năng', icon: 'target', soon: true },
     { page: 'zalo', label: 'Chatbot Zalo', logo: 'zalo', soon: true },
     { page: 'studio', label: 'Nội dung AI', icon: 'sparkles', soon: true },
@@ -143,7 +144,7 @@ async function route() {
   const [, page = 'overview', a, b] = location.hash.split('/');
   const navPage = { run: 'runs', api: 'settings', engines: 'settings' }[page] || page;
   document.querySelectorAll('#nav a[data-page]').forEach(x => x.classList.toggle('active', x.dataset.page === navPage));
-  const fn = SOON[page] ? () => soonPage(page) : { overview, todo: todoPage, posts, reports: fbReport, flows: a ? flowDetail : flowList, runs: a ? runDetail : runList, run: runView, library, profiles, proxies, engines, api: apiPage, settings }[page] || overview;
+  const fn = SOON[page] ? () => soonPage(page) : { overview, todo: todoPage, posts, research: (...x) => researchPage(...x), reports: fbReport, flows: a ? flowDetail : flowList, runs: a ? runDetail : runList, run: runView, library, profiles, proxies, engines, api: apiPage, settings }[page] || overview;
   if (['library', 'proxies'].includes(page)) refreshNavData();
   const m = $('#main'); m.className = ''; m.scrollTop = 0; document.onkeydown = null;
   try { if (!state.flows.length) await loadFlows(); await fn(a, b); } catch (e) { m.innerHTML = `<div class="wrap"><div class="warn">${I('alert')}${esc(e.message)}</div></div>`; }
