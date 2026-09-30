@@ -1665,7 +1665,7 @@ const POST_PLATFORMS = [
 ];
 const fmtN = n => n == null ? '' : Number(n).toLocaleString('vi-VN');
 const fmtK = n => n == null ? '' : n >= 1e6 ? (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'K' : String(n);
-function postStat(s) { if (!s) return ''; const parts = []; if (s.views != null) parts.push(`${fmtN(s.views)} xem`); if (s.likes) parts.push(`${fmtN(s.likes)} thích`); if (s.comments) parts.push(`${fmtN(s.comments)} bình luận`); return parts.join(' · '); }
+function postStat(s) { if (!s) return ''; const parts = []; if (s.views != null) parts.push(`${fmtN(s.views)} xem`); parts.push(`${fmtN(s.likes || 0)} thích`); parts.push(`${fmtN(s.comments || 0)} bình luận`); return parts.join(' · '); }
 function postScore(p) {
   const t = p.stats?.tiktok || {}, y = p.stats?.youtube || {};
   return (t.views || 0) + (t.likes || 0) * 8 + (t.comments || 0) * 15 + (y.views || 0) + (y.comments || 0) * 15;
@@ -1894,8 +1894,7 @@ function updateLive() {
   const n = act.length;
   const em = $('#navRunning'); if (em) { em.textContent = n || ''; em.classList.toggle('on', n > 0); }
   $('#liveDot').classList.toggle('busy', n > 0);
-  $('#footState').textContent = n ? `Đang chạy ${n} workflow` : 'Sẵn sàng';
-  $('#footSub').textContent = n ? act.map(r => r.name).slice(0, 2).join(' · ') : 'Máy chủ 127.0.0.1:4719';
+  $('#footSub').textContent = n ? `Đang chạy ${n} workflow · ${act.map(r => r.name).slice(0, 1).join('')}` : 'Sẵn sàng';
 }
 
 // ---------- chung

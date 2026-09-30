@@ -1085,3 +1085,11 @@ input:focus,select:focus,textarea:focus{box-shadow:0 0 0 3px rgba(26,86,219,.12)
 .prank{top:auto;bottom:10px;left:10px}
 .prank.r0{bottom:8px;left:8px}
 .pcard-media:has(.prank) .pdur{left:48px}
+
+/* ---------- chân sidebar: avatar chủ tài khoản + chấm trạng thái, không lộ địa chỉ máy chủ */
+.av-wrap{position:relative;flex:none;width:36px;height:36px}
+.av-wrap .av{width:36px;height:36px;border-radius:50%;object-fit:cover;display:block;box-shadow:0 0 0 1.5px #fff,0 0 0 2.5px var(--line)}
+.av-wrap .live{position:absolute;right:-1px;bottom:-1px;width:10px;height:10px;box-shadow:0 0 0 2px #fff}
+.av-wrap .live.busy{box-shadow:0 0 0 2px #fff}
+.sidefoot .st{font-size:13px;font-weight:600;color:var(--ink)}
+body.collapsed .sidefoot .av-wrap{margin:0}
