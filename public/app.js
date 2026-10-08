@@ -81,6 +81,7 @@ const NAV = [
   ] },
   { g: 'Tăng trưởng', items: [
     { page: 'reports', label: 'Radar Facebook', logo: 'facebook' },
+    { page: 'fbgroups', label: 'Nhóm Facebook', icon: 'users', badge: 'navFbg' },
     { page: 'posts', label: 'Bài đăng', icon: 'play' },
     { page: 'ainews', label: 'Tin tức AI', icon: 'sparkles' },
     { page: 'research', label: 'Nghiên cứu nội dung', icon: 'radar' },
@@ -109,6 +110,11 @@ function renderNav() {
 async function refreshNavData() {
   const [lib, px] = await Promise.all([api('GET', '/api/library').catch(() => []), api('GET', '/api/proxies').catch(() => [])]);
   state.navHas = { library: lib.length > 0, proxies: px.length > 0 }; renderNav(); todoBadge();
+  fbgBadge();
+}
+// số việc chờ duyệt trong các nhóm FB đang làm admin (theo lần cập nhật gần nhất)
+function fbgBadge() {
+  api('GET', '/api/fbgroups').then(d => { const n = d.groups.reduce((a, g) => { const s = d.snaps[g.id]?.at(-1) || {}; return a + (s.pending_posts || 0) + (s.member_requests || 0) + (s.reported || 0) + (s.alerts || 0); }, 0); const e = $('#navFbg'); if (e) { e.textContent = n || ''; e.style.display = n ? 'grid' : 'none'; } }).catch(() => {});
 }
 // trang giới thiệu module sắp làm
 const SOON = {
@@ -145,7 +151,7 @@ async function route() {
   const [, page = 'overview', a, b] = location.hash.split('/');
   const navPage = { run: 'runs', api: 'settings', engines: 'settings' }[page] || page;
   document.querySelectorAll('#nav a[data-page]').forEach(x => x.classList.toggle('active', x.dataset.page === navPage));
-  const fn = SOON[page] ? () => soonPage(page) : { overview, todo: todoPage, posts, research: (...x) => researchPage(...x), ainews: (...x) => aiNewsPage(...x), reports: fbReport, flows: a ? flowDetail : flowList, runs: a ? runDetail : runList, run: runView, library, profiles, proxies, engines, api: apiPage, settings }[page] || overview;
+  const fn = SOON[page] ? () => soonPage(page) : { overview, todo: todoPage, posts, research: (...x) => researchPage(...x), ainews: (...x) => aiNewsPage(...x), fbgroups: (...x) => fbGroupsPage(...x), reports: fbReport, flows: a ? flowDetail : flowList, runs: a ? runDetail : runList, run: runView, library, profiles, proxies, engines, api: apiPage, settings }[page] || overview;
   if (['library', 'proxies'].includes(page)) refreshNavData();
   const m = $('#main'); m.className = ''; m.scrollTop = 0; document.onkeydown = null;
   try { if (!state.flows.length) await loadFlows(); await fn(a, b); } catch (e) { m.innerHTML = `<div class="wrap"><div class="warn">${I('alert')}${esc(e.message)}</div></div>`; }

@@ -14,6 +14,7 @@ import { getSettings, saveSettings, rotateApiKey } from './settings.js';
 import { listAgents, setAgent } from './agents.js';
 import { mountApi, aiModels } from './api_v1.js';
 import { createAiNews } from './ainews.js';
+import { createFbGroups } from './fbgroups.js';
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -293,6 +294,13 @@ app.post('/api/research/run', wrap(() => {
 const aiNews = createAiNews(path.join(OUTPUT_DIR, 'ainews'));
 app.get('/api/ainews', wrap(() => aiNews.get()));
 app.post('/api/ainews/refresh', wrap(() => aiNews.refresh()));
+// ---- Nhóm Facebook làm admin: danh sách + số liệu đọc từ trang quản trị nhóm (bấm cập nhật mới đọc)
+const fbGroups = createFbGroups(path.join(path.dirname(RUNS_DIR), 'fb-groups.json'));
+app.get('/api/fbgroups', wrap(() => fbGroups.get()));
+app.post('/api/fbgroups', wrap(req => fbGroups.add(req.body)));
+app.patch('/api/fbgroups/:id', wrap(req => fbGroups.update(req.params.id, req.body)));
+app.delete('/api/fbgroups/:id', wrap(req => fbGroups.remove(req.params.id)));
+app.post('/api/fbgroups/refresh', wrap(req => fbGroups.refresh(req.body?.id)));
 // ---- việc cần làm mỗi ngày (to-do): lưu file todos.json trong thư mục dữ liệu của app
 const TODOS = path.join(path.dirname(RUNS_DIR), 'todos.json');
 const readTodos = () => { try { return JSON.parse(fs.readFileSync(TODOS, 'utf8')); } catch { return []; } };
