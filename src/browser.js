@@ -2,7 +2,7 @@
 // Chạy Chrome thật của máy, điều khiển qua CDP. Engine cloak/adspower/gologin/multilogin của bản gốc không có trên Mac.
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { chromium } from 'playwright-core';
 import { DATA_DIR, PROFILES_DIR } from './paths.js';
 
@@ -52,6 +52,16 @@ export async function deleteProfile(name) {
   fs.rmSync(path.join(PROFILES_DIR, name), { recursive: true, force: true });
 }
 
+// Chrome chạy ẩn tự xưng "HeadlessChrome" trong UA → X (Twitter) trả 403 ngay (08/10/2026). Xưng là Chrome thường cùng phiên bản.
+let _ua = '';
+function headlessUA() {
+  if (_ua) return _ua;
+  let ver = '';
+  try { ver = (execFileSync(CHROME, ['--version'], { timeout: 10000 }).toString().match(/(\d+)\./) || [])[1] || ''; } catch { /* không đọc được phiên bản */ }
+  const os = process.platform === 'darwin' ? 'Macintosh; Intel Mac OS X 10_15_7' : 'X11; Linux x86_64';
+  return (_ua = `Mozilla/5.0 (${os}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${ver || '140'}.0.0.0 Safari/537.36`);
+}
+
 export async function getBrowser(name = 'default') {
   const prof = listProfiles().find(p => p.name === name);
   if (!prof) throw new Error(`Không có profile "${name}"`);
@@ -64,7 +74,7 @@ export async function getBrowser(name = 'default') {
     fs.mkdirSync(dir, { recursive: true });
     const args = [`--remote-debugging-port=${prof.port}`, `--user-data-dir=${dir}`, '--no-first-run', '--no-default-browser-check', '--window-size=1280,900'];
     if (prof.proxy) args.push(`--proxy-server=${prof.proxy}`);
-    if (prof.headless || FORCE_HEADLESS) args.push('--headless=new');
+    if (prof.headless || FORCE_HEADLESS) args.push('--headless=new', `--user-agent=${headlessUA()}`);
     if (process.env.HPBFLOW_NO_SANDBOX === '1') args.push('--no-sandbox', '--disable-dev-shm-usage');
     const child = spawn(CHROME, args, { detached: true, stdio: 'ignore' });
     child.unref();

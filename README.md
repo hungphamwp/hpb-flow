@@ -32,7 +32,7 @@ Mở file .dmg, kéo HPB Flow vào Applications. App tự bật server đi kèm 
 | `src/agents.js` | Ghi/gỡ cấu hình MCP cho từng agent |
 | `public/` | Giao diện: Tổng quan, Workflow (grid + canvas), Lần chạy, Thư viện, Hồ sơ, Proxy, Trình duyệt, API, Cài đặt |
 
-Dữ liệu người dùng: `~/Library/Application Support/HPBFlow/` (flows, profiles, library/media, runs, settings.json). Kết quả flow: `~/Downloads/HPBFlow`.
+Dữ liệu người dùng: `~/Library/Application Support/HPBFlow/` (flows, profiles, library/media, runs, settings.json). Kết quả flow: `~/Project/HPBFlow`.
 
 ## Flow
 

@@ -39,3 +39,17 @@
 .an-frame{position:relative;aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden} .an-frame.vert{aspect-ratio:9/13;max-height:66vh;margin:0 auto}
 .an-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 @media (max-width:1000px){.an-pts{grid-template-columns:1fr}}
+
+/* làm lại 10/10/2026: độ tin cậy + nguồn */
+.an-ptm{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px}
+.an-badge{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--soft);color:var(--muted)}
+.an-badge .i{width:12px;height:12px} .an-badge.ok{background:#e8f5ee;color:#137a43} .an-badge.warn{background:#fff4e0;color:#a0610b}
+.an-ct{margin:6px 0 0;padding-left:18px;font-size:13.5px;color:var(--ink-2,#334155);line-height:1.55} .an-ct li{margin:2px 0}
+.an-luu{display:flex;gap:6px;font-size:12.5px;color:#a0610b;margin:6px 0 0} .an-luu .i{width:14px;height:14px;flex-shrink:0;margin-top:2px}
+.an-src{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.an-src a{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:3px 8px;border:1px solid var(--line);border-radius:6px;color:var(--ink);text-decoration:none;background:var(--panel)}
+.an-src a:hover{border-color:var(--brand);color:var(--brand)} .an-src a em{font-style:normal;color:var(--muted)} .an-src a .i{width:12px;height:12px;color:#137a43}
+.an-src a.official{border-color:#bfe3cd}
+.an-sk{padding:14px 20px;border-bottom:1px solid var(--line-2)} .an-sk:last-child{border-bottom:0}
+.an-skh{display:flex;gap:8px;align-items:center;flex-wrap:wrap} .an-skh b{font-size:14.5px;margin-right:4px}
+.an-sk p{margin:4px 0 0;font-size:13.5px;color:var(--muted)}

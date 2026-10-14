@@ -15,6 +15,10 @@ import { listAgents, setAgent } from './agents.js';
 import { mountApi, aiModels } from './api_v1.js';
 import { createAiNews } from './ainews.js';
 import { createFbGroups } from './fbgroups.js';
+import { createJoinedGroups } from './joinedgroups.js';
+import { createProjects } from './projects.js';
+import { createTodoRemind } from './todoremind.js';
+import { createPet } from './pet.js';
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -218,15 +222,29 @@ app.get('/api/posts', wrap(() => {
   }).sort((a, b) => new Date(b.created || 0) - new Date(a.created || 0));
 }));
 const VIDEO_AUTO_DIR = path.join(os.homedir(), 'websites', 'hpb-video-auto');
-app.post('/api/posts/refresh', wrap(() => new Promise((resolve, reject) => {
-  if (!fs.existsSync(path.join(VIDEO_AUTO_DIR, 'scripts', 'stats.mjs'))) return reject(new Error('Không tìm thấy scripts/stats.mjs'));
+// YouTube tự đo qua launchd (API chính thức). TikTok phải mở trình duyệt nên KHÔNG chạy lịch (Hưng tắt 08/10/2026),
+// chỉ đo khi bấm nút "Cập nhật TikTok" trên trang Bài đăng: chạy ngầm lần lượt 2 chuyên mục, trang tự làm mới thấy số mới.
+const AI_NEWS_DIR = path.join(os.homedir(), 'websites', 'hpb-ai-news');
+const tiktokJob = { running: false, at: 0, error: '' };
+app.get('/api/posts/tiktok', (req, res) => res.json(tiktokJob));
+app.post('/api/posts/tiktok', wrap(() => {
+  if (tiktokJob.running) return tiktokJob;
   const env = { ...process.env, PATH: `/opt/homebrew/bin:/usr/local/bin:${path.join(os.homedir(), '.local/bin')}:${process.env.PATH}` };
-  execFile('node', ['scripts/stats.mjs'], { cwd: VIDEO_AUTO_DIR, env, timeout: 90000 }, (err, stdout, stderr) => {
-    const m = /RESULT (\{.*\})/.exec(stdout || '');
-    if (err && !m) return reject(new Error((stderr || err.message).split('\n').slice(-3).join(' · ')));
-    resolve(m ? JSON.parse(m[1]) : { ok: true });
-  });
-})));
+  const dirs = [VIDEO_AUTO_DIR, AI_NEWS_DIR].filter(d => fs.existsSync(path.join(d, 'scripts', 'stats.mjs')));
+  if (!dirs.length) throw new Error('Không tìm thấy scripts/stats.mjs');
+  Object.assign(tiktokJob, { running: true, at: Date.now(), error: '' });
+  const errs = [];
+  const next = i => {
+    if (i >= dirs.length) return Object.assign(tiktokJob, { running: false, at: Date.now(), error: errs.join(' · ') });
+    execFile('node', ['scripts/stats.mjs', '--only=tiktok'], { cwd: dirs[i], env, timeout: 300000 }, (err, stdout, stderr) => {
+      const skip = /Bỏ qua TikTok:\s*(.*)/.exec(stdout || '');
+      if (err || skip) errs.push(`${path.basename(dirs[i])}: ${skip ? skip[1] : (stderr || err.message).trim().split('\n').pop()}`);
+      next(i + 1);
+    });
+  };
+  next(0);
+  return tiktokJob;
+}));
 app.post('/api/choose-file', wrap(() => new Promise((resolve, reject) => {
   const kind = 'file';
   const script = `tell application "Finder"\nactivate\nset fs to choose ${kind} with prompt "Chọn file" with multiple selections allowed\nend tell\nset out to ""\nrepeat with f in fs\nset out to out & POSIX path of (f as alias) & linefeed\nend repeat\nreturn out`;
@@ -301,6 +319,15 @@ app.post('/api/fbgroups', wrap(req => fbGroups.add(req.body)));
 app.patch('/api/fbgroups/:id', wrap(req => fbGroups.update(req.params.id, req.body)));
 app.delete('/api/fbgroups/:id', wrap(req => fbGroups.remove(req.params.id)));
 app.post('/api/fbgroups/refresh', wrap(req => fbGroups.refresh(req.body?.id)));
+// ---- Nhóm đã tham gia của FB chính / FB phụ (khối trong Radar): bật radar (chỉ FB phụ) thì flow fb-quet-lead-nhom quét thêm nhóm đó
+const joined = createJoinedGroups(path.join(OUTPUT_DIR, 'nhom-fb'));
+app.get('/api/joined-groups', wrap(() => joined.get()));
+app.patch('/api/joined-groups/:id', wrap(req => { joined.setRadar(req.params.id, req.body?.radar); return joined.get(); }));
+app.post('/api/joined-groups/topic', wrap(req => { joined.setRadarTopic(req.body?.topic, req.body?.radar); return joined.get(); }));
+app.post('/api/joined-groups/refresh', wrap(req => joined.refresh(req.body?.profile)));
+app.post('/api/joined-groups/measure', wrap(req => joined.measure(req.body?.profile, { force: !!req.body?.force })));
+app.post('/api/joined-groups/measure/stop', wrap(req => joined.stopMeasure(req.body?.profile)));
+app.post('/api/joined-groups/visit', wrap(req => joined.visit(req.body?.profile || 'default', req.body?.id, req.body?.on !== false)));
 // ---- việc cần làm mỗi ngày (to-do): lưu file todos.json trong thư mục dữ liệu của app
 const TODOS = path.join(path.dirname(RUNS_DIR), 'todos.json');
 const readTodos = () => { try { return JSON.parse(fs.readFileSync(TODOS, 'utf8')); } catch { return []; } };
@@ -315,7 +342,7 @@ app.get('/api/todos', wrap(req => {
 app.post('/api/todos', wrap(req => {
   const text = String(req.body.text || '').trim(); if (!text) throw new Error('Nhập nội dung việc cần làm');
   if (!isDay(req.body.date)) throw new Error('Thiếu ngày');
-  const list = readTodos(), t = { id: 't' + Date.now().toString(36) + randomUUID().slice(0, 4), date: req.body.date, text: text.slice(0, 500), done: false, star: !!req.body.star, prio: [1, 2, 3, 4].includes(+req.body.prio) ? +req.body.prio : 4, note: String(req.body.note || '').trim().slice(0, 1000), created: Date.now() };
+  const list = readTodos(), t = { id: 't' + Date.now().toString(36) + randomUUID().slice(0, 4), date: req.body.date, text: text.slice(0, 500), done: false, star: !!req.body.star, prio: [1, 2, 3, 4].includes(+req.body.prio) ? +req.body.prio : 4, note: String(req.body.note || '').trim().slice(0, 1000), remind: remindOf(req.body.remind), created: Date.now() };
   list.push(t); writeTodos(list); return t;
 }));
 app.patch('/api/todos/:id', wrap(req => {
@@ -326,8 +353,35 @@ app.patch('/api/todos/:id', wrap(req => {
   if ('note' in req.body) t.note = String(req.body.note || '').trim().slice(0, 1000);
   if ('text' in req.body && String(req.body.text).trim()) t.text = String(req.body.text).trim().slice(0, 500);
   if ('date' in req.body && isDay(req.body.date)) t.date = req.body.date;
-  writeTodos(list); return t;
+  if ('remind' in req.body) { t.remind = remindOf(req.body.remind); delete t.snooze; }
+  writeTodos(list);
+  // việc thêm từ gợi ý dự án: tích xong/bỏ tích → đổi cột task trên panel (chạy nền, lỗi ghi vào t.syncErr)
+  if ('done' in req.body && t.src?.tid) projects.setDone(t.src.tid, t.done).then(() => { const l = readTodos(), x = l.find(y => y.id === t.id); if (x && x.syncErr) { delete x.syncErr; writeTodos(l); } })
+    .catch(e => { const l = readTodos(), x = l.find(y => y.id === t.id); if (x) { x.syncErr = e.message; writeTodos(l); } });
+  return t;
 }));
+// giờ nhắc "HH:MM" (rỗng = không nhắc); đổi giờ/ngày thì được nhắc lại
+const remindOf = v => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(v || '')) ? String(v) : '';
+const todoRemind = createTodoRemind({ file: TODOS, readTodos, writeTodos, port: PORT });
+createPet({ dataDir: path.dirname(RUNS_DIR) })(app);
+app.get('/api/todos/remind', wrap(() => todoRemind.getCfg()));
+app.post('/api/todos/remind', wrap(req => todoRemind.setCfg(req.body || {})));
+app.post('/api/todos/remind/test', wrap(() => todoRemind.test()));
+app.post('/api/todos/remind/preview', wrap(() => todoRemind.preview()));
+// ---- Gợi ý việc từ dự án trên panel (mục "Gợi ý từ dự án" ở trang Việc hôm nay)
+const projects = createProjects(path.join(path.dirname(RUNS_DIR), 'du-an-goi-y.json'));
+app.get('/api/project-suggest', wrap(async req => { const d = isDay(req.query.date) ? req.query.date : new Date().toLocaleDateString('sv-SE'); const l = readTodos(); return projects.suggest(d, l, writeTodos, { force: req.query.force === '1' }); }));
+app.post('/api/project-suggest/add', wrap(async req => {
+  const { key, date } = req.body || {}; if (!isDay(date)) throw new Error('Thiếu ngày');
+  const s = await projects.findSuggestion(date, key); if (!s) throw new Error('Gợi ý không còn trên panel, bấm làm mới');
+  const list = readTodos();
+  if (list.some(t => t.src?.key === key && !t.done)) throw new Error('Việc này đã có trong danh sách');
+  const t = { id: 't' + Date.now().toString(36) + randomUUID().slice(0, 4), date, text: `${s.text} — ${s.du_an}`.slice(0, 500), done: false, star: false, prio: s.prio,
+    note: [s.why, s.khach && 'Khách: ' + s.khach, s.note].filter(Boolean).join(' · ').slice(0, 1000), remind: '', created: Date.now(), src: { from: 'panel', key, pid: s.pid, tid: s.tid, du_an: s.du_an } };
+  list.push(t); writeTodos(list); return t;
+}));
+app.post('/api/project-suggest/dismiss', wrap(req => { const { key, date } = req.body || {}; if (!isDay(date) || !key) throw new Error('Thiếu dữ liệu'); projects.dismiss(date, key); return { ok: true }; }));
+app.post('/api/project-suggest/undismiss', wrap(req => { if (!isDay(req.body?.date)) throw new Error('Thiếu ngày'); projects.undismiss(req.body.date); return { ok: true }; }));
 app.delete('/api/todos/:id', wrap(req => { writeTodos(readTodos().filter(x => x.id !== req.params.id)); return { ok: true }; }));
 app.get('/api/settings', wrap(() => ({ ...getSettings(), output_dir: OUTPUT_DIR, profiles_dir: PROFILES_DIR })));
 app.post('/api/settings', wrap(req => saveSettings(req.body)));
@@ -348,4 +402,15 @@ app.get('/api/engines', wrap(async () => {
 
 mountApi(app, { startRun, waitRun });
 
-app.listen(PORT, HOST, () => console.log(`HPB Flow đang chạy: http://${HOST}:${PORT}${PASSWORD ? ' (có mật khẩu)' : ''}`));
+// JSON hỏng từ client: trả 400 gọn, không in cả trang stack vào log
+app.use((err, req, res, next) => { if (err?.type === 'entity.parse.failed') return res.status(400).json({ error: 'JSON không hợp lệ' }); next(err); });
+
+// lưới an toàn: một lỗi lạ trong callback/promise chỉ ghi log, không làm sập cả server (app Mac sẽ phải khởi động lại)
+const stamp = () => new Date().toLocaleString('vi-VN');
+process.on('uncaughtException', e => console.error(`[${stamp()}] lỗi chưa bắt:`, e?.stack || e));
+process.on('unhandledRejection', e => console.error(`[${stamp()}] promise lỗi:`, e?.stack || e));
+
+const server = app.listen(PORT, HOST, () => console.log(`[${stamp()}] HPB Flow đang chạy: http://${HOST}:${PORT}${PASSWORD ? ' (có mật khẩu)' : ''}`));
+// cổng bị chiếm (server cũ còn treo): thoát hẳn với mã 98 để app Mac dọn tiến trình cũ rồi chạy lại
+server.on('error', e => { console.error(`[${stamp()}] không mở được cổng ${PORT}:`, e.code || e.message); process.exit(e.code === 'EADDRINUSE' ? 98 : 1); });
+for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => { server.close(); process.exit(0); });

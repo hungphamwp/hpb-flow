@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="vi" class="desk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bông</title>
+<!-- Cửa sổ pet nổi trên màn hình (mac/main.swift mở trang này trong panel trong suốt). Dùng lại style.css cho biến màu + font, pet.css + pet.js cho pet. -->
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="pet.css">
+<style>
+html.desk,html.desk body{background:transparent!important;overflow:hidden;height:100%}
+html.desk body{display:block;margin:0}
+</style>
+</head>
+<body>
+<script>
+// thay cho các hàm của app.js mà pet.js dùng tới
+async function api(method, url, body) {
+  const r = await fetch(url, { method, headers: { 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error?.message || d.error || r.statusText); return d;
+}
+function nav(h) { try { window.webkit.messageHandlers.bong.postMessage({ cmd: 'open', hash: h }); } catch { location.hash = h; } }
+</script>
+<script src="pet.js"></script>
+</body>
+</html>

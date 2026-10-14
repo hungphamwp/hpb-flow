@@ -25,6 +25,7 @@ cp -R src public flows package.json package-lock.json "$C/Resources/app/"
 
 # 3. Vỏ app Swift + icon + Info.plist
 xcrun swiftc -O -target arm64-apple-macos13 mac/main.swift -o "$C/MacOS/HPBFlow"
+xcrun swiftc -O -target arm64-apple-macos13 mac/remind.swift -o "$C/MacOS/hpb-remind"   # cửa sổ nhắc việc nổi
 cp mac/icon.icns "$C/Resources/icon.icns"
 cat > "$C/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -43,6 +44,8 @@ cat > "$C/Info.plist" <<PLIST
 <key>NSHighResolutionCapable</key><true/>
 <key>NSHumanReadableCopyright</key><string>© HPB Media</string>
 <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
+<key>NSMicrophoneUsageDescription</key><string>Để Bông nghe lệnh bằng giọng nói của bạn.</string>
+<key>NSSpeechRecognitionUsageDescription</key><string>Để Bông hiểu lệnh tiếng Việt bạn nói.</string>
 </dict></plist>
 PLIST
 

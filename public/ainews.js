@@ -1,13 +1,13 @@
-// ---------- Tin tức AI: tóm tắt nhanh + video đang được xem nhiều + tin mới. Chỉ cập nhật khi bấm "Làm mới".
+// ---------- Tin tức AI: sự kiện đã gom từ 17 nguồn (đếm nguồn xác nhận, tóm tắt từ nội dung bài) + video + toàn bộ bài. Tự làm mới mỗi ngày lúc 23:00.
 const anDur = s => { const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0'); };
 const anAgo = t => { if (!t) return ''; const m = Math.max(0, Math.round((Date.now() - t) / 60000)); return m < 60 ? `${m} phút trước` : m < 1440 ? `${Math.round(m / 60)} giờ trước` : `${Math.round(m / 1440)} ngày trước`; };
 
 async function aiNewsPage() {
   crumbs(['Tin tức AI']);
   const r = await api('GET', '/api/ainews'), d = r.data, st = r.status;
-  state.an = { tab: 'video', vf: 'all', vs: 'views', nf: 'all', ...state.an };
-  const running = st?.running && Date.now() - new Date(st.at) < 5 * 60e3;
-  const sub = d ? `Cập nhật ${anAgo(+new Date(d.updated))} (${fmtPostedAt(+new Date(d.updated))}) · ${d.news.length} tin · ${d.videos.length} video trong 7 ngày qua` : 'Chưa có dữ liệu. Bấm "Làm mới" để lấy tin và video AI mới nhất.';
+  state.an = { tab: 'su_kien', vf: 'all', vs: 'views', nf: 'all', sf: 'all', ...state.an }; if (!['su_kien', 'video', 'news'].includes(state.an.tab)) state.an.tab = 'su_kien';
+  const running = st?.running && Date.now() - new Date(st.at) < 12 * 60e3;
+  const sub = d ? `Cập nhật ${anAgo(+new Date(d.updated))} (${fmtPostedAt(+new Date(d.updated))}) · ${d.sources ?? '?'}/${d.sources_total ?? '?'} nguồn · ${d.news.length} bài trong 48 giờ · ${(d.stories || []).length} sự kiện · tự làm mới mỗi ngày lúc 23:00` : 'Chưa có dữ liệu. Bấm "Làm mới" để lấy tin và video AI mới nhất.';
   $('#main').innerHTML = `<div class="wrap an">` + pageHead('Tin tức AI', sub, `<button class="primary" ${running ? 'disabled' : ''} onclick="aiNewsRun(this)">${running ? '<span class="rs-spin" style="width:14px;height:14px;border-color:rgba(255,255,255,.4);border-top-color:#fff"></span>' : I('refresh')} ${running ? 'Đang làm mới…' : 'Làm mới'}</button>`) +
     (running ? `<div class="rs-run"><span class="rs-spin"></span><div><b>${esc(st.step || 'Đang lấy dữ liệu')}</b><span>Trang tự cập nhật khi xong, có thể xem bản cũ trong lúc chờ</span></div></div>` : '') +
     (st && !st.running && st.ok === false ? `<div class="rs-run err">${I('alert')}<div><b>Lần làm mới trước không thành công</b><span>${esc(st.step)}</span></div></div>` : '') +
@@ -21,19 +21,40 @@ async function aiNewsRun(btn) {
 }
 function anSet(k, v) { state.an[k] = v; const y = $('#main').scrollTop; aiNewsPage().then(() => { $('#main').scrollTop = y; }); }
 
+const AN_NHOM = { mo_hinh: 'Mô hình', san_pham: 'Sản phẩm', doanh_nghiep: 'Doanh nghiệp', chinh_sach: 'Chính sách', nghien_cuu: 'Nghiên cứu', bao_mat: 'Bảo mật', viet_nam: 'Việt Nam', khac: 'Khác' };
+// độ tin cậy: hãng tự công bố > nhiều nguồn khác nhau > một nguồn
+const anTrust = s => s.chinh_thuc ? ['ok', `${I('check')} Hãng công bố`] : s.so_nguon >= 2 ? ['ok', `${I('check')} ${s.so_nguon} nguồn xác nhận`] : ['warn', 'Mới 1 nguồn'];
+function anSrc(s) {
+  const seen = new Set();
+  return `<div class="an-src">${s.nguon.filter(n => !seen.has(n.source + n.title) && seen.add(n.source + n.title)).map(n => `<a href="${esc(n.url)}" target="_blank" rel="noopener" title="${esc(n.title)}" class="${n.kind}">${n.kind === 'official' ? I('check') : ''}${esc(n.source)}<em>${anAgo(n.at)}</em></a>`).join('')}</div>`;
+}
 function anDigest(d, running) {
-  const x = d.digest;
-  if (!x) return `<section class="card an-dg"><div class="lbl">${I('sparkles')} Tóm tắt nhanh</div><p class="muted">${running ? 'Đang viết tóm tắt, vài chục giây nữa là có…' : 'Chưa có tóm tắt cho lần này.'}</p></section>`;
-  return `<section class="card an-dg"><div class="an-dgh"><div class="lbl">${I('sparkles')} Tóm tắt nhanh · đọc 1 phút</div><span class="muted small">${d.digest_at ? fmtPostedAt(+new Date(d.digest_at)) : ''}</span></div>
-    <p class="an-sum">${esc(x.tom_tat)}</p>
-    <div class="an-pts">${(x.diem_tin || []).map((p, i) => `<div class="an-pt"><span class="rs-n">${i + 1}</span><div><b>${esc(p.tieu_de)}</b><p>${esc(p.y_chinh)}</p>${p.cho_hung ? `<p class="an-for">${I('zap')}<span>${esc(p.cho_hung)}</span></p>` : ''}</div></div>`).join('')}</div>
-    ${(x.nen_xem || []).length ? `<div class="an-watch"><b>${I('play')} Nên xem trước</b><ul>${x.nen_xem.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>` : ''}</section>`;
+  const x = d.digest, top = (d.stories || []).filter(s => s.viet).slice(0, 12);
+  if (!x || !top.length) return `<section class="card an-dg"><div class="lbl">${I('sparkles')} Tin AI quan trọng</div><p class="muted">${running ? 'Đang gom và tóm tắt tin, vài phút nữa là có…' : 'Chưa có tóm tắt cho lần này. Bấm "Làm mới".'}</p></section>`;
+  return `<section class="card an-dg"><div class="an-dgh"><div class="lbl">${I('sparkles')} Tin AI quan trọng · tóm tắt từ nội dung bài gốc</div><span class="muted small">${d.digest_at ? fmtPostedAt(+new Date(d.digest_at)) : ''}</span></div>
+    ${x.tom_tat ? `<p class="an-sum">${esc(x.tom_tat)}</p>` : ''}
+    <div class="an-pts">${top.map((s, i) => { const v = s.viet, t = anTrust(s); return `<div class="an-pt"><span class="rs-n">${i + 1}</span><div>
+      <div class="an-ptm"><span class="an-badge ${t[0]}">${t[1]}</span><span class="an-badge">${esc(AN_NHOM[s.nhom] || 'Khác')}</span><span class="muted small">${anAgo(s.at)}</span></div>
+      <b>${esc(v.tieu_de || s.tieu_de)}</b><p>${esc(v.tom_tat || '')}</p>
+      ${(v.chi_tiet || []).length ? `<ul class="an-ct">${v.chi_tiet.map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}
+      ${v.luu_y ? `<p class="an-luu">${I('alert')}<span>${esc(v.luu_y)}</span></p>` : ''}
+      ${v.cho_hung ? `<p class="an-for">${I('zap')}<span>${esc(v.cho_hung)}</span></p>` : ''}
+      ${anSrc(s)}</div></div>`; }).join('')}</div></section>`;
 }
 
 function anTabs(d) {
   const a = state.an, seg = (k, opts) => `<div class="seg">${opts.map(([v, l]) => `<button class="${a[k] === v ? 'on' : ''}" onclick="anSet('${k}','${v}')">${l}</button>`).join('')}</div>`;
-  return `<div class="toolbar an-bar"><div class="seg"><button class="${a.tab === 'video' ? 'on' : ''}" onclick="anSet('tab','video')">${I('play')} Video <em>${d.videos.length}</em></button><button class="${a.tab === 'news' ? 'on' : ''}" onclick="anSet('tab','news')">${I('file')} Tin tức <em>${d.news.length}</em></button></div>
-    ${a.tab === 'video' ? seg('vf', [['all', 'Tất cả'], ['short', 'Shorts'], ['long', 'Video dài']]) + seg('vs', [['views', 'Xem nhiều'], ['new', 'Mới nhất']]) : seg('nf', [['all', 'Tất cả'], ['vn', 'Tiếng Việt'], ['en', 'Quốc tế']])}</div>` + (a.tab === 'video' ? anVideos(d) : anNews(d));
+  const ns = (d.stories || []).length;
+  return `<div class="toolbar an-bar"><div class="seg"><button class="${a.tab === 'su_kien' ? 'on' : ''}" onclick="anSet('tab','su_kien')">${I('layers')} Tất cả sự kiện <em>${ns}</em></button><button class="${a.tab === 'video' ? 'on' : ''}" onclick="anSet('tab','video')">${I('play')} Video <em>${d.videos.length}</em></button><button class="${a.tab === 'news' ? 'on' : ''}" onclick="anSet('tab','news')">${I('file')} Từng bài <em>${d.news.length}</em></button></div>
+    ${a.tab === 'video' ? seg('vf', [['all', 'Tất cả'], ['short', 'Shorts'], ['long', 'Video dài']]) + seg('vs', [['views', 'Xem nhiều'], ['new', 'Mới nhất']]) : a.tab === 'news' ? seg('nf', [['all', 'Tất cả'], ['official', 'Hãng công bố'], ['press', 'Báo quốc tế'], ['vn', 'Báo Việt']]) : seg('sf', [['all', 'Tất cả'], ['xac_nhan', 'Đã xác nhận'], ['vn', 'Liên quan Việt Nam']])}</div>`
+    + (a.tab === 'video' ? anVideos(d) : a.tab === 'news' ? anNews(d) : anStories(d));
+}
+// danh sách mọi sự kiện (kể cả ngoài top được tóm tắt), xếp theo độ quan trọng
+function anStories(d) {
+  const a = state.an; let list = d.stories || [];
+  if (a.sf === 'xac_nhan') list = list.filter(s => s.chinh_thuc || s.so_nguon >= 2); else if (a.sf === 'vn') list = list.filter(s => s.viet_nam || s.nhom === 'viet_nam');
+  if (!list.length) return '<p class="empty">Không có sự kiện nào khớp bộ lọc.</p>';
+  return `<section class="card flush an-ng">${list.map(s => { const t = anTrust(s); return `<div class="an-sk"><div class="an-skh"><b>${esc(s.viet?.tieu_de || s.tieu_de)}</b><span class="an-badge ${t[0]}">${t[1]}</span><span class="an-badge">${esc(AN_NHOM[s.nhom] || 'Khác')}</span><span class="muted small">${anAgo(s.at)}</span></div>${s.viet?.tom_tat ? `<p>${esc(s.viet.tom_tat)}</p>` : ''}${anSrc(s)}</div>`; }).join('')}</section>`;
 }
 
 function anVideos(d) {
@@ -53,9 +74,9 @@ function anPlay(v) {
 }
 
 function anNews(d) {
-  const a = state.an, list = d.news.filter(n => a.nf === 'all' || n.lang === a.nf);
+  const a = state.an, list = d.news.filter(n => a.nf === 'all' || (n.kind ? n.kind === a.nf : n.lang === a.nf));
   if (!list.length) return '<p class="empty">Không có tin nào khớp bộ lọc.</p>';
   const day = t => { if (!t) return 'Không rõ ngày'; const diff = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(t).setHours(0, 0, 0, 0)) / 864e5); return diff <= 0 ? 'Hôm nay' : diff === 1 ? 'Hôm qua' : rsDay(t); };
   const groups = []; for (const n of list) { const g = day(n.at); (groups.find(x => x[0] === g) || (groups.push([g, []]), groups.at(-1)))[1].push(n); }
-  return groups.map(([g, items]) => `<section class="card flush an-ng"><div class="an-nh">${esc(g)} <em>${items.length}</em></div>${items.map(n => `<a class="an-n" href="${esc(n.url)}" target="_blank" rel="noopener"><span class="an-nt">${n.at ? new Date(n.at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : ''}</span><div><b>${esc(n.title)}</b><div class="an-ns"><span>${esc(n.source)}</span><span class="chip">${n.lang === 'vn' ? 'Tiếng Việt' : 'Quốc tế'}</span></div></div><span class="an-go">${I('arrow-right')}</span></a>`).join('')}</section>`).join('');
+  return groups.map(([g, items]) => `<section class="card flush an-ng"><div class="an-nh">${esc(g)} <em>${items.length}</em></div>${items.map(n => `<a class="an-n" href="${esc(n.url)}" target="_blank" rel="noopener"><span class="an-nt">${n.at ? new Date(n.at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : ''}</span><div><b>${esc(n.title)}</b><div class="an-ns"><span>${esc(n.source)}</span><span class="chip">${n.kind === 'official' ? 'Hãng công bố' : n.lang === 'vn' ? 'Báo Việt' : 'Báo quốc tế'}</span></div></div><span class="an-go">${I('arrow-right')}</span></a>`).join('')}</section>`).join('');
 }

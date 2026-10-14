@@ -27,7 +27,7 @@ const NODE_DEFAULTS = { goto: { url: 'https://', wait_until: 'domcontentloaded' 
   click: { selector: '' }, type: { selector: '', value: '' }, key_press: { key: 'Enter' }, hover: { selector: '' }, scroll: { direction: 'down', amount: 800 }, mouse_click: { x: 0, y: 0 }, mouse_drag: { from_x: 0, from_y: 0, to_x: 100, to_y: 0 }, resize_viewport: { width: 1280, height: 800 },
   screenshot: { emit: true, output_var: 'shot' }, condition: { expression: '{{vars.x}} == yes' }, loop: { times: 3 }, set_var: { key: 'ten_bien', value: '' }, emit_progress: { message: '' }, human_pause: { message: 'Làm xong việc trên trình duyệt rồi bấm Tiếp tục' },
   subflow: { flow_id: '' }, claude_prompt: { prompt: '', output_var: 'ai' }, upload_file: { selector: 'input[type=file]', path: '' }, upload_via_chooser: { trigger_selector: '', path: '' }, resolve_images: { images_var: '', output_var: 'images' }, save_images_to_library: { selector: 'img', output_var: 'saved' },
-  download_file: { target_var: '', output_var: 'file' }, poll_stream_text: { msg_selector: '' }, save_to_file: { path: '~/Downloads/HPBFlow/ket-qua.txt', content: '{{vars.ket_qua}}' }, read_from_txt: { path: '', output_var: 'noi_dung' }, save_to_excel: { path: '~/Downloads/HPBFlow/ket-qua.xlsx', rows: '{{vars.rows}}' },
+  download_file: { target_var: '', output_var: 'file' }, poll_stream_text: { msg_selector: '' }, save_to_file: { path: '~/Project/HPBFlow/ket-qua.txt', content: '{{vars.ket_qua}}' }, read_from_txt: { path: '', output_var: 'noi_dung' }, save_to_excel: { path: '~/Project/HPBFlow/ket-qua.xlsx', rows: '{{vars.rows}}' },
   read_from_excel: { path: '', output_var: 'rows' }, get_cookies: { output_var: 'cookies' }, set_cookies: { cookies: {} }, new_tab: { url: '' }, switch_tab: { index: 0 } };
 const CAT_NAME = { nav: 'Trình duyệt & điều hướng', act: 'Thao tác trên trang', data: 'Dữ liệu, file & AI', logic: 'Điều khiển luồng', end: 'Kết thúc' };
 // bước có sẵn gắn với app: thêm vào sơ đồ là có logo app đó
@@ -53,7 +53,7 @@ const APP_PRESETS = [
   ['wordpress', 'WordPress', 'Vào trang quản trị WordPress', 'goto', 'Mở WordPress', { url: '{{vars.site}}/wp-admin/' }],
   ['cloudflare', 'Cloudflare', 'Mở bảng điều khiển Cloudflare', 'goto', 'Mở Cloudflare', { url: 'https://dash.cloudflare.com/' }],
   ['excel', 'Excel: đọc file', 'Đọc bảng .xlsx thành danh sách dòng', 'read_from_excel', 'Đọc Excel', { path: '', output_var: 'rows' }],
-  ['excel', 'Excel: ghi file', 'Ghi danh sách dòng ra .xlsx', 'save_to_excel', 'Ghi Excel', { path: '~/Downloads/HPBFlow/ket-qua.xlsx', rows: '{{vars.rows}}' }],
+  ['excel', 'Excel: ghi file', 'Ghi danh sách dòng ra .xlsx', 'save_to_excel', 'Ghi Excel', { path: '~/Project/HPBFlow/ket-qua.xlsx', rows: '{{vars.rows}}' }],
 ];
 const nIcon = t => I((NODE_UI[t] || ['zap'])[0]);
 const nCat = t => (NODE_UI[t] || [0, 'nav'])[1];
@@ -251,6 +251,7 @@ async function todoPage() {
       <div id="tdOverBox"></div>
       <section class="tdx-sec"><div class="tdx-sech" id="tdMainHead"></div><div id="tdRows"></div><div id="tdAddBox"></div><div id="tdEmpty"></div></section>
       <div id="tdDoneBox"></div>
+      <div id="tdProjBox"></div>
     </div>
     <aside class="tdx-side">
       <div class="sc sc-prog" id="sProg">
@@ -275,7 +276,41 @@ async function todoPage() {
   if (!tdOf(state.todoDay).length) { state.tdEd = 'new'; state.tdDraft = { date: state.todoDay, prio: 4 }; }
   todoDraw(); todoAddBox(); tdFocus();
 }
-function todoDraw() { todoHead(); todoWeek(); todoList(); }
+// ---------- Gợi ý từ dự án (panel.hmarketing.vn): mỗi dự án đang chạy một việc nên làm nhất, chỉ hiện ở ngày hôm nay
+async function tdProj(force) {
+  const box = $('#tdProjBox'); if (!box) return;
+  if (state.todoDay !== tdToday()) { box.innerHTML = ''; return; }
+  if (!force && state.tdProj && state.tdProj.date === state.todoDay && Date.now() - state.tdProjAt < 60e3) return tdProjDraw();
+  if (!state.tdProj) box.innerHTML = `<section class="tdx-sec tdp"><div class="tdx-sech"><h2>Gợi ý từ dự án <small>đang tải từ panel…</small></h2></div></section>`;
+  try { state.tdProj = await api('GET', `/api/project-suggest?date=${state.todoDay}${force ? '&force=1' : ''}`); state.tdProjAt = Date.now(); state.tdProjErr = ''; }
+  catch (e) { state.tdProjErr = e.message; }
+  tdProjDraw();
+}
+function tdProjDraw() {
+  const box = $('#tdProjBox'); if (!box) return;
+  const d = state.tdProj, err = state.tdProjErr;
+  if (err && !d) { box.innerHTML = `<section class="tdx-sec tdp"><div class="tdx-sech"><h2>Gợi ý từ dự án <small class="t-err">${esc(err)}</small></h2><button class="rs" onclick="tdProj(true)">Thử lại</button></div></section>`; return; }
+  if (!d) return;
+  const sub = `${d.tong.dang_chay} dự án đang chạy${d.tong.tre ? ` · <span class="t-err">${d.tong.tre} trễ deadline</span>` : ''}${d.da_them ? ` · ${d.da_them} đã thêm vào hôm nay` : ''}`;
+  const row = s => {
+    const hot = /Trễ|trễ|hôm nay/.test(s.why);
+    return `<div class="tdp-r">
+      <div class="tdp-b"><div class="tdp-p">#${s.pid} ${esc(s.du_an)}${s.khach ? ` · ${esc(s.khach)}` : ''}</div><div class="tdp-t">${esc(s.text)}</div>
+        <div class="tdp-w ${hot ? 'hot' : ''}">${esc(s.why)}${s.con ? ` · còn ${s.con} việc khác` : ''}</div></div>
+      <div class="tdp-a"><button class="sm primary" onclick='tdProjAdd(${j(s.key)})'>${I('plus')} Hôm nay</button><button class="sm" title="Ẩn gợi ý này hôm nay" onclick='tdProjHide(${j(s.key)})'>${I('x')}</button></div></div>`;
+  };
+  box.innerHTML = `<section class="tdx-sec tdp"><div class="tdx-sech"><h2>Gợi ý từ dự án <small>${sub}</small></h2>
+    ${d.an ? `<button class="rs" onclick="tdProjUnhide()">Hiện lại ${d.an} gợi ý đã ẩn</button>` : ''}<button class="rs" title="Lấy lại dữ liệu mới nhất từ panel" onclick="tdProj(true)">${I('refresh')}</button><a class="rs" href="https://panel.hmarketing.vn/index.php?view=progress" target="_blank">Mở panel ↗</a></div>
+    ${d.items.length ? d.items.map(row).join('') + (d.con_lai ? `<div class="tdp-more">Còn ${d.con_lai} dự án khác, thêm hoặc ẩn bớt để hiện tiếp</div>` : '') : '<p class="empty">Không còn gợi ý nào cho hôm nay.</p>'}
+    ${err ? `<div class="tdp-more t-err">Chưa làm mới được: ${esc(err)}</div>` : ''}</section>`;
+}
+async function tdProjAdd(key) {
+  try { const t = await api('POST', '/api/project-suggest/add', { key, date: state.todoDay }); state.todos.push(t); state.todoFlash = t.id; tdSound?.('tick'); toast('Đã thêm vào việc hôm nay'); todoHead(); todoList(); tdProj(true); }
+  catch (e) { toast(e.message); }
+}
+async function tdProjHide(key) { await api('POST', '/api/project-suggest/dismiss', { key, date: state.todoDay }).catch(e => toast(e.message)); tdProj(true); }
+async function tdProjUnhide() { await api('POST', '/api/project-suggest/undismiss', { date: state.todoDay }).catch(e => toast(e.message)); tdProj(true); }
+function todoDraw() { todoHead(); todoWeek(); todoList(); tdProj(); }
 function todoHead() {
   const day = state.todoDay, today = tdToday(), items = tdOf(day), n = items.length, done = items.filter(t => t.done).length;
   $('#tdTitle').textContent = dayTitle(day);
@@ -307,7 +342,7 @@ function todoSide() {
   $('#sChart').innerHTML = `<div class="sc-h">7 ngày qua <span>${sum} việc</span></div><div class="kp-chart">${days.map((k, i) => `<div title="${esc(dayLong(k))}: xong ${cnt[i]} việc">${cnt[i] ? `<em>${cnt[i]}</em>` : ''}<i style="height:${Math.max(cnt[i] / mx * 100, 5)}%" class="${k === today ? 'now' : ''}"></i><small>${DOW_S[dayDate(k).getDay()]}</small></div>`).join('')}</div>`;
   const got = state.todoBadgeSet || tdBadges();
   $('#sBadges').innerHTML = `<div class="sc-h">Huy hiệu <span>${got.size}/${TODO_BADGES.length} đã mở</span></div><div class="sb-grid">${tdBadgeGrid()}</div>`;
-  $('#sFoot').innerHTML = `<span><kbd>Q</kbd> thêm việc</span><span><kbd>←</kbd><kbd>→</kbd> đổi ngày</span><button class="sw ${tdSoundOn() ? 'on' : ''}" title="Âm thanh khi hoàn thành" onclick="todoSoundToggle(this)"><i></i></button><a class="credit" href="https://googlefonts.github.io/noto-emoji-animation/" target="_blank" rel="noopener">Sticker: Noto Emoji (Google), CC BY 4.0</a>`;
+  $('#sFoot').innerHTML = `<span><kbd>Q</kbd> thêm việc</span><span><kbd>←</kbd><kbd>→</kbd> đổi ngày</span><button class="sm" style="margin-left:auto" title="Nhắc việc trên máy" onclick="todoRemindCfg(this)">${I('clock')} Nhắc việc</button><button class="sw ${tdSoundOn() ? 'on' : ''}" title="Âm thanh khi hoàn thành" onclick="todoSoundToggle(this)"><i></i></button><a class="credit" href="https://googlefonts.github.io/noto-emoji-animation/" target="_blank" rel="noopener">Sticker: Noto Emoji (Google), CC BY 4.0</a>`;
 }
 function todoWeek() {
   const day = state.todoDay, today = tdToday(), mon = dayShift(day, -((dayDate(day).getDay() + 6) % 7));
@@ -319,13 +354,14 @@ function todoWeek() {
 function tdRow(t) {
   if (state.tdEd === t.id) return '<div id="tdEdSlot"></div>';
   const p = tdP(t), late = !t.done && t.date < state.todoDay;
-  const meta = (t.date !== state.todoDay ? `<span class="${tdDateCls(t.date)}">${I('calendar')}${tdDateLabel(t.date)}</span>` : '') + (p < 4 && !t.done ? `<span class="pf${p}">${I('flag')}P${p}</span>` : '');
+  const meta = (t.date !== state.todoDay ? `<span class="${tdDateCls(t.date)}">${I('calendar')}${tdDateLabel(t.date)}</span>` : '') + (p < 4 && !t.done ? `<span class="pf${p}">${I('flag')}P${p}</span>` : '') + (t.remind && !t.done ? `<span class="dl-today">${I('clock')}${t.remind}</span>` : '')
+    + (t.src?.pid ? `<span class="tdp-tag" title="${t.src.tid ? 'Đồng bộ với task trên panel: tích xong ở đây thì panel cũng xong' : 'Gợi ý từ dự án trên panel'}${t.syncErr ? ' · Lỗi đồng bộ: ' + esc(t.syncErr) : ''}">${I('layers')}#${t.src.pid} ${esc(t.src.du_an || '')}${t.syncErr ? ' ⚠' : ''}</span>` : '');
   return `<div class="tr p${p} ${t.done ? 'done' : ''} ${state.todoFlash === t.id ? 'flash' : ''}" data-id="${t.id}">
     <button class="tr-ck" title="${t.done ? 'Đánh dấu chưa xong' : `Hoàn thành (+${tdXp(t)} XP)`}" onclick='todoToggle(${j(t.id)}, event)'>${TD_CHECK}</button>
     <div class="tr-body" onclick='todoEdit(${j(t.id)})'><div class="tr-t">${esc(t.text)}</div>${t.note ? `<div class="tr-n">${esc(t.note)}</div>` : ''}${meta ? `<div class="tr-meta">${meta}</div>` : ''}</div>
     ${t.done ? '' : `<span class="tr-xp">+${tdXp(t)}</span>`}
     <div class="tr-act">
-      ${t.done ? '' : `<button title="Sửa" onclick='todoEdit(${j(t.id)})'>${I('edit')}</button><button title="${late ? 'Dời lịch' : 'Đổi ngày'}" onclick='todoRowDate(${j(t.id)}, this)'>${I('calendar')}</button><button title="Mức ưu tiên" onclick='todoRowPrio(${j(t.id)}, this)'>${I('flag')}</button>`}
+      ${t.done ? '' : `<button title="Sửa" onclick='todoEdit(${j(t.id)})'>${I('edit')}</button><button title="${late ? 'Dời lịch' : 'Đổi ngày'}" onclick='todoRowDate(${j(t.id)}, this)'>${I('calendar')}</button><button title="Mức ưu tiên" onclick='todoRowPrio(${j(t.id)}, this)'>${I('flag')}</button><button title="Nhắc giờ" onclick='todoRowRem(${j(t.id)}, this)'>${I('clock')}</button>`}
       <button class="del" title="Xoá" onclick='todoDel(${j(t.id)})'>${I('trash')}</button>
     </div></div>`;
 }
@@ -333,7 +369,7 @@ function tdEditorEl(mode) {
   const d = state.tdDraft || {}, f = document.createElement('form'); f.className = 'tdx-ed'; f.onsubmit = todoSubmit;
   f.innerHTML = `<input class="et" id="tdIn" placeholder="${mode === 'edit' ? 'Tên việc' : 'Tên việc, ví dụ: Gọi khách chốt báo giá'}" maxlength="500" autocomplete="off" spellcheck="false">
     <input class="en" id="tdNote" placeholder="Mô tả" maxlength="1000" autocomplete="off" spellcheck="false">
-    <div class="ed-chips"><button type="button" class="cb" id="tdDateChip" onclick="todoDraftDate(this)"></button><button type="button" class="cb" id="tdPrioChip" onclick="todoDraftPrio(this)"></button></div>
+    <div class="ed-chips"><button type="button" class="cb" id="tdDateChip" onclick="todoDraftDate(this)"></button><button type="button" class="cb" id="tdPrioChip" onclick="todoDraftPrio(this)"></button><button type="button" class="cb" id="tdRemChip" onclick="todoDraftRem(this)"></button></div>
     <div class="ed-foot"><span class="muted small">${mode === 'edit' ? 'Esc để huỷ' : 'Enter để thêm · Esc để đóng'}</span><button type="button" onclick="todoCloseEd()">Huỷ</button><button type="submit" class="pri">${mode === 'edit' ? 'Lưu' : 'Thêm việc'}</button></div>`;
   f.querySelector('#tdIn').value = d.text || ''; f.querySelector('#tdNote').value = d.note || '';
   for (const i of f.querySelectorAll('input')) { i.addEventListener('compositionstart', () => { state.tdComposing = true; }); i.addEventListener('compositionend', () => { setTimeout(() => { state.tdComposing = false; }, 0); }); }
@@ -384,27 +420,30 @@ function todoOpenAdd() {
 }
 function todoEdit(id) {
   const t = tdFind(id); if (!t || t.done) return; if (state.tdEd === id) return;
-  state.tdEd = id; state.tdEdEl = null; state.tdDraft = { text: t.text, note: t.note || '', date: t.date, prio: tdP(t) };
+  state.tdEd = id; state.tdEdEl = null; state.tdDraft = { text: t.text, note: t.note || '', date: t.date, prio: tdP(t), remind: t.remind || '' };
   todoAddBox(); todoList(); tdFocus();
 }
 function todoCloseEd() { state.tdEd = null; state.tdEdEl = null; state.tdDraft = null; tdPopClose(); todoAddBox(); todoList(); }
 function tdChips() { const d = state.tdDraft, c = $('#tdDateChip'), p = $('#tdPrioChip'); if (!d) return;
   if (c) { c.className = 'cb ' + tdDateCls(d.date); c.innerHTML = I('calendar') + tdDateLabel(d.date); }
-  if (p) { p.className = 'cb pf' + d.prio; p.innerHTML = I('flag') + (d.prio < 4 ? 'P' + d.prio : 'Ưu tiên'); } }
+  if (p) { p.className = 'cb pf' + d.prio; p.innerHTML = I('flag') + (d.prio < 4 ? 'P' + d.prio : 'Ưu tiên'); }
+  const r = $('#tdRemChip'); if (r) { r.className = 'cb' + (d.remind ? ' dl-today' : ''); r.innerHTML = I('clock') + (d.remind ? 'Nhắc ' + d.remind : 'Nhắc giờ'); } }
 function todoDraftDate(btn) { tdDateMenu(btn, state.tdDraft.date, k => { state.tdDraft.date = k; tdChips(); $('#tdIn')?.focus(); }); }
+function todoDraftRem(btn) { tdRemMenu(btn, state.tdDraft.remind, v => { state.tdDraft.remind = v; tdChips(); $('#tdIn')?.focus(); }); }
 function todoDraftPrio(btn) { tdPrioMenu(btn, state.tdDraft.prio, p => { state.tdDraft.prio = p; tdChips(); $('#tdIn')?.focus(); }); }
 async function todoSubmit(e) {
   e.preventDefault(); if (state.tdComposing) return;
   const inp = $('#tdIn'), text = inp.value.trim(), note = $('#tdNote').value.trim(), d = state.tdDraft;
   if (!text) { const f = e.target; f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake'); inp.focus(); return; }
   if (state.tdEd === 'new') {
-    try { const t = await api('POST', '/api/todos', { date: d.date, text, note, prio: d.prio }); state.todos.push(t); state.todoFlash = t.id;
+    try { const t = await api('POST', '/api/todos', { date: d.date, text, note, prio: d.prio, remind: d.remind || '' }); state.todos.push(t); state.todoFlash = t.id;
       if (d.date !== state.todoDay) toast(`Đã thêm vào ${tdDateLabel(d.date).toLowerCase()}`);
+      if (t.remind) toast(`Máy sẽ nhắc lúc ${t.remind}`);
       state.tdDraft = { date: d.date, prio: 4 }; inp.value = ''; $('#tdNote').value = ''; tdChips();
       todoHead(); todoWeek(); todoList(); inp.focus();
     } catch (er) { toast(er.message); }
   } else {
-    const t = tdFind(state.tdEd); if (t) { Object.assign(t, { text, note, date: d.date, prio: d.prio, star: false }); tdSync(api('PATCH', '/api/todos/' + t.id, { text, note, date: d.date, prio: d.prio })); state.todoFlash = t.id; }
+    const t = tdFind(state.tdEd); if (t) { Object.assign(t, { text, note, date: d.date, prio: d.prio, star: false, remind: d.remind || '' }); tdSync(api('PATCH', '/api/todos/' + t.id, { text, note, date: d.date, prio: d.prio, remind: d.remind || '' })); state.todoFlash = t.id; }
     state.tdEd = null; state.tdEdEl = null; state.tdDraft = null; todoDraw(); todoAddBox();
   }
 }
@@ -428,6 +467,34 @@ function tdDateMenu(anchor, cur, pick) {
   if (!m) return;
   m.onclick = e => { const b = e.target.closest('button[data-k]'); if (b) { pick(b.dataset.k); tdPopClose(); } };
   m.querySelector('input').onchange = e => { if (e.target.value) { pick(e.target.value); tdPopClose(); } };
+}
+// giờ nhắc: tới giờ máy hiện hộp thoại nổi (Xong rồi / 15 phút nữa / Để đó) — server lo phần nhắc, app không cần mở
+function tdRemMenu(anchor, cur, pick) {
+  const hm = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, later = m => hm(new Date(Date.now() + m * 60e3));
+  const opts = [[later(30), 'Sau 30 phút'], [later(60), 'Sau 1 giờ'], ['09:00', 'Sáng 9:00'], ['14:00', 'Chiều 14:00'], ['17:00', 'Cuối ngày 17:00']];
+  const m = tdPop(anchor, opts.map(([v, l]) => `<button data-v="${v}" class="${v === cur ? 'on' : ''}"><span class="mi">${I('clock')}</span>${l}<em>${v}</em></button>`).join('')
+    + `<hr><label>${I('clock')}Chọn giờ<input type="time" value="${cur || ''}"></label>` + (cur ? `<hr><button data-v=""><span class="mi">${I('x')}</span>Bỏ nhắc</button>` : ''));
+  if (!m) return;
+  m.onclick = e => { const b = e.target.closest('button[data-v]'); if (b) { pick(b.dataset.v); tdPopClose(); } };
+  m.querySelector('input').onchange = e => { if (e.target.value) { pick(e.target.value); tdPopClose(); } };
+}
+function todoRowRem(id, btn) { const t = tdFind(id); if (!t) return; tdRemMenu(btn, t.remind, v => { t.remind = v; tdSync(api('PATCH', '/api/todos/' + id, { remind: v })); if (v) toast(`Máy sẽ nhắc lúc ${v}${t.date !== tdToday() ? ' ngày ' + dayVN(t.date).slice(0, 5) : ''}`); state.todoFlash = id; todoList(); }); }
+// cài đặt nhắc định kỳ (thông báo góc màn hình liệt kê việc chưa xong)
+async function todoRemindCfg(btn) {
+  const c = await api('GET', '/api/todos/remind').catch(() => null); if (!c) return toast('Không đọc được cài đặt nhắc việc');
+  const hours = (sel, from, to) => [...Array(to - from + 1)].map((_, i) => from + i).map(h => `<option value="${h}" ${h === sel ? 'selected' : ''}>${h}:00</option>`).join('');
+  const m = tdPop(btn, `<div style="padding:6px 8px 8px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><b style="font-size:13.5px">Nhắc việc trên máy</b><button class="sw ${c.on ? 'on' : ''}" data-on style="margin-left:auto"><i></i></button></div>
+    <label style="padding:4px 0">Nhắc mỗi<select data-k="every" style="margin-left:auto">${[15, 30, 45, 60, 90, 120].map(v => `<option value="${v}" ${v === c.every ? 'selected' : ''}>${v < 60 ? v + ' phút' : v / 60 + ' giờ'}</option>`).join('')}</select></label>
+    <label style="padding:4px 0">Từ<select data-k="from" style="margin-left:auto">${hours(c.from, 5, 12)}</select>đến<select data-k="to">${hours(c.to, 16, 24)}</select></label>
+    <p class="muted small" style="margin:8px 0 10px;line-height:1.45">Thông báo góc màn hình kèm âm thanh, liệt kê việc chưa xong. Việc có <b>giờ nhắc</b> thì tới giờ hiện thẻ nhắc nổi giữa màn hình.</p>
+    <button data-prev style="justify-content:center;border:1px solid var(--line);margin-bottom:6px">⏰ Xem thử thẻ nhắc</button>
+    <button data-test style="justify-content:center;border:1px solid var(--line)">${I('clock')}Thử thông báo định kỳ</button></div>`, '', true);
+  if (!m) return;
+  const save = patch => api('POST', '/api/todos/remind', patch).then(() => toast('Đã lưu cài đặt nhắc việc')).catch(e => toast(e.message));
+  m.querySelector('[data-on]').onclick = e => { const b = e.currentTarget, on = !b.classList.contains('on'); b.classList.toggle('on', on); save({ on }); };
+  m.querySelectorAll('select').forEach(x => { x.onchange = () => save({ [x.dataset.k]: +x.value }); });
+  m.querySelector('[data-prev]').onclick = () => { tdPopClose(); api('POST', '/api/todos/remind/preview').catch(e => toast(e.message)); };
+  m.querySelector('[data-test]').onclick = () => api('POST', '/api/todos/remind/test').then(() => toast('Đã gửi thông báo — không thấy thì bật thông báo cho "Script Editor" trong Cài đặt hệ thống › Thông báo')).catch(e => toast(e.message));
 }
 function tdPrioMenu(anchor, cur, pick) {
   const m = tdPop(anchor, [1, 2, 3, 4].map(p => `<button data-p="${p}" class="${p === cur ? 'on' : ''}"><span class="mi pf${p}">${I('flag')}</span>${PRIO[p]}<em>+${({ 1: 20, 2: 15, 3: 12, 4: 10 })[p]} XP</em></button>`).join(''));
@@ -515,7 +582,8 @@ function tdUndo(msg, fn) {
 // ---------- báo cáo quét nhóm & bình luận Facebook
 async function fbReport() {
   crumbs(['Radar Facebook']);
-  const d = await api('GET', '/api/reports/fb');
+  const [d, jg] = await Promise.all([api('GET', '/api/reports/fb'), api('GET', '/api/joined-groups').catch(() => null)]);
+  state.jgData = jg; state.jgScanned = new Set(d.groups.map(g => g.id));
   const DAY = 86400000, today = new Date().setHours(0, 0, 0, 0);
   const posted = d.comments.filter(c => c.posted);
   const inDays = (arr, n) => arr.filter(x => (x.t || 0) >= today - (n - 1) * DAY);
@@ -541,10 +609,75 @@ async function fbReport() {
   </div>
   <section class="card flush"><div class="c-h pad"><div><h3>Bình luận gần đây</h3><p>Mới nhất trước</p></div><span class="chip">${d.comments.length} bài</span></div>
     ${d.comments.length ? `<table class="tbl"><thead><tr><th>Thời gian</th><th>Nhóm / Bài</th><th>Bình luận</th><th>Trạng thái</th></tr></thead><tbody>${d.comments.slice(0, 60).map(c => `<tr><td class="muted small" style="white-space:nowrap">${esc(c.gio || '')}<div>${esc(c.ngay || '')}</div></td><td><b>${esc((c.nhom || '').slice(0, 40))}</b><div class="sub">${esc(c.loai || '')}${c.nguoi_dang ? ' · ' + esc(c.nguoi_dang) : ''}</div><div class="small muted">${esc((c.noi_dung || '').slice(0, 140))}</div>${c.link ? `<a class="small" href="${esc(c.link)}" target="_blank">Mở bài ↗</a>` : ''}</td><td>${esc(c.comment || '—')}${c.tai_khoan || c.tag ? `<div class="sub" style="white-space:normal;margin-top:4px">${c.tai_khoan ? `bởi <b>${esc(c.tai_khoan)}</b>` : ''}${c.tag ? ` · tag @Hưng Phạm ${c.tag_ok ? '<span class="t-ok">✓ đúng nick</span>' : '<span class="muted">(chưa kiểm tra)</span>'}` : ''}</div>` : ''}</td><td>${st(c)}</td></tr>`).join('')}</tbody></table>` : '<p class="empty">Chưa có bình luận nào. Bấm "Chạy ngay" để chạy lượt đầu.</p>'}</section>
+  <section class="card flush" id="jgBox">${jgHtml()}</section>
   <section class="card flush"><div class="c-h pad"><div><h3>Xếp hạng nhóm</h3><p>Nhóm ra lead, tương tác cao, ít rác được quét trước · số liệu đếm từ các lượt quét thật, tự cập nhật, lúc ${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</p></div></div>
     ${groups.length ? `<table class="tbl"><thead><tr><th>Nhóm</th><th class="num">Lần quét</th><th class="num">Lead</th><th class="num">Hỏi đáp/khác</th><th class="num">Tương tác/bài</th><th class="num">% rác</th><th>Quét gần nhất</th></tr></thead><tbody>${groups.slice(0, 60).map(g => `<tr><td><div class="fcell">${appTile('facebook', 'sm')}<a href="https://www.facebook.com/groups/${esc(g.id)}" target="_blank"><b>${esc(g.name || g.id)}</b>${g.name ? '' : ' <span class="muted small">(chưa lấy được tên, sẽ có sau lượt quét tới)</span>'}</a></div></td><td class="num">${g.lan_quet}</td><td class="num">${g.lead_cao ? `<b class="t-ok">${g.lead_cao}</b>` : 0}</td><td class="num">${g.lead_tb}</td><td class="num">${g.tuong_tac ?? '—'}</td><td class="num">${g.rac == null ? '—' : `<span class="${g.rac >= 50 ? 't-err' : ''}">${g.rac}%</span>`}</td><td class="muted small">${esc(g.lan_cuoi)}</td></tr>`).join('')}</tbody></table>` : '<p class="empty">Chưa có dữ liệu nhóm.</p>'}</section>
   <section class="card flush"><div class="c-h pad"><div><h3>Các lượt chạy tự động</h3></div></div>
     ${d.runs.length ? `<table class="tbl"><thead><tr><th>Thời gian</th><th class="num">Nhóm quét</th><th class="num">Bài mới</th><th class="num">Bình luận</th><th class="num">Bỏ qua</th><th class="num">Lỗi</th><th>Sheet lead lượt đó</th></tr></thead><tbody>${d.runs.slice(0, 40).map(r => `<tr><td class="small">${esc(r.gio)} ${esc(r.ngay)}${r.dry ? ' <span class="chip warn">thử</span>' : ''}</td><td class="num">${r.nhom}</td><td class="num">${r.moi}</td><td class="num"><b>${r.binh_luan}</b></td><td class="num">${r.bo_qua}</td><td class="num">${r.loi ? `<span class="t-err">${r.loi}</span>` : 0}</td><td>${r.sheet ? `<a class="small" href="${esc(r.sheet)}" target="_blank">Mở ↗</a>` : '—'}</td></tr>`).join('')}</tbody></table>` : '<p class="empty">Chưa có lượt chạy tự động nào.</p>'}</section></div>`;
+}
+
+// ---------- Radar: nhóm đã tham gia của FB chính / FB phụ (đọc từ trang groups/joins). Chỉ FB phụ bật được "Thêm vào Radar" (flow quét lead chạy bằng FB phụ)
+function jgHtml() {
+  const J = state.jgData; if (!J?.accounts) return '<div class="c-h pad"><div><h3>Nhóm đã tham gia</h3><p>Không đọc được danh sách nhóm.</p></div></div>';
+  const ui = state.jg ||= { acc: 'default', topic: 'web', all: false }, T = J.topics || {}, accs = J.accounts, RP = J.radar_profile;
+  if (!accs[ui.acc]) ui.acc = Object.keys(accs)[0];
+  const A = accs[ui.acc], gs = A.groups || [], st = A.status || {}, isR = ui.acc === RP, otherName = Object.entries(accs).find(([p]) => p !== ui.acc)?.[1].name || '';
+  const H = g => g.act?.heat ?? -1, hasAct = gs.some(g => g.act), ms = A.mstatus || {};
+  const cnt = k => gs.filter(g => g.topic === k).length;
+  let list = ui.topic === 'all' ? gs : gs.filter(g => g.topic === ui.topic);
+  if (ui.hot) list = list.filter(g => H(g) >= 30 && !g.act?.pending);
+  if (ui.vi) list = list.filter(jgVi);
+  if (hasAct) list = [...list].sort((a, b) => H(b) - H(a));
+  const on = gs.filter(g => g.radar).length, shown = ui.all ? list : list.slice(0, 12);
+  const scanned = id => state.jgScanned?.has(id);
+  const tag = g => g.radar ? '<span class="badge ok">Đang trong Radar</span>' : scanned(g.id) ? '<span class="badge" data-tip="Nhóm có trong Sheet danh sách nhóm, đã được quét">Đã quét (Sheet)</span>' : '<span class="muted small">Chưa quét</span>';
+  const tabK = isR && ui.topic !== 'all' && ui.topic !== 'khac' ? ui.topic : null, allOn = tabK && list.every(g => g.radar);
+  const wa = a => (a.groups || []).filter(g => g.topic !== 'khac').length;
+  const sub = !A.at && !st.at ? `Chưa đọc danh sách nhóm của ${esc(A.name)}. Bấm "Đọc lại từ Facebook".` : `${gs.length} nhóm (${wa(A)} nhóm website & AI)${isR ? ` · ${on} nhóm bật Radar, lượt quét lead tự động quét thêm các nhóm này` : ' · nhóm FB phụ chưa vào thì Radar không quét được'}${st.at ? ` · ${st.running ? `<b>${esc(st.step || 'Đang đọc…')}</b>` : `cập nhật ${ago(A.at || st.at)}${st.ok === false ? ` · <span class="t-err">${esc(st.step)}</span>` : ''}`}` : ''}`;
+  return `<div class="c-h pad"><div><h3>Nhóm đã tham gia</h3><p>${sub}</p></div>
+    <div style="display:flex;gap:8px">${tabK ? `<button class="sm" onclick="jgTopic('${tabK}',${!allOn})">${allOn ? 'Bỏ cả mục này khỏi Radar' : `Thêm tất cả ${esc(T[tabK] || '')} vào Radar`}</button>` : ''}${!isR ? (ms.running ? `<button class="sm" onclick="jgMeasureStop('${ui.acc}')">${I('stop')} Dừng đo</button>` : `<button class="sm" onclick="jgMeasure('${ui.acc}')">${I('activity')} Đo tương tác</button>`) : ''}<button class="sm" ${st.running || ms.running ? 'disabled' : ''} onclick="jgRefresh('${ui.acc}')">${I('refresh')} Đọc lại từ Facebook</button></div></div>
+  ${!isR && ms.at ? `<div style="padding:0 20px 10px" class="small ${ms.ok === false ? 't-err' : 'muted'}">${ms.running ? `<b>${esc(ms.step)}</b> · mỗi nhóm cách nhau 8–15 giây cho an toàn tài khoản, đo xong nhóm nào hiện ngay nhóm đó` : `Lần đo gần nhất ${ago(ms.at)}: ${esc(ms.step)}`}</div>` : ''}
+  ${!isR ? jgDaily(A, J.today) : ''}
+  <div style="padding:0 20px 14px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+    <div class="seg">${Object.entries(accs).map(([p, a]) => `<button class="${ui.acc === p ? 'on' : ''}" onclick="state.jg.acc='${p}';state.jg.all=false;jgDraw()"><b>${esc(a.name)}</b> <span class="muted">${wa(a)}</span></button>`).join('')}</div>
+    <div class="seg">${[...Object.keys(T).map(k => [k, T[k]]), ['all', 'Tất cả']].map(([k, n]) => `<button class="${ui.topic === k ? 'on' : ''}" onclick="state.jg.topic='${k}';state.jg.all=false;jgDraw()">${esc(n)} <span class="muted">${k === 'all' ? gs.length : cnt(k)}</span></button>`).join('')}</div>${hasAct ? `<label class="small" style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" ${ui.hot ? 'checked' : ''} onchange="state.jg.hot=this.checked;state.jg.all=false;jgDraw()"> Chỉ nhóm có tương tác</label>` : ''}<label class="small" style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" ${ui.vi ? 'checked' : ''} onchange="state.jg.vi=this.checked;state.jg.all=false;jgDraw()"> Chỉ nhóm Việt Nam</label></div>
+  ${list.length ? `<table class="tbl"><thead><tr><th>Nhóm</th><th>Chủ đề</th>${hasAct ? '<th>Tương tác</th>' : ''}<th>${esc(otherName)}</th>${isR ? '<th>Radar</th><th></th>' : ''}</tr></thead><tbody>${shown.map(g => `<tr><td><div class="fcell">${appTile('facebook', 'sm')}<a href="https://www.facebook.com/groups/${esc(g.id)}" target="_blank"><b>${esc(g.name || g.id)}</b></a></div></td><td class="muted small">${esc(T[g.topic] || '')}</td>${hasAct ? `<td>${jgHeat(g)}</td>` : ''}<td>${g.other ? '<span class="t-ok small" style="white-space:nowrap">✓ Đã vào</span>' : '<span class="muted small" style="white-space:nowrap">Chưa vào</span>'}</td>${isR ? `<td>${tag(g)}</td><td style="text-align:right"><button class="sm" onclick="jgToggle('${esc(g.id)}',${!g.radar})">${g.radar ? 'Bỏ khỏi Radar' : `${I('plus')} Thêm vào Radar`}</button></td>` : ''}</tr>`).join('')}</tbody></table>
+    ${list.length > shown.length ? `<div class="pad" style="text-align:center"><button class="sm" onclick="state.jg.all=true;jgDraw()">Xem tất cả ${list.length} nhóm</button></div>` : ''}` : `<p class="empty">${gs.length ? 'Không có nhóm nào trong mục này.' : 'Chưa có dữ liệu.'}</p>`}`;
+}
+// nhóm Việt: tên có dấu tiếng Việt hoặc chữ Việt Nam/VN (khách làm web của HPB là người Việt)
+const jgVi = g => /[àáảãạăằắẳẵặâầấẩẫậđèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵ]|vi[eệ]t ?nam|\bvn\b|\bviet\b/i.test(g.name || '');
+function jgLevel(h) { return h == null || h < 0 ? null : h >= 1000 ? ['Rất sôi nổi', 'ok'] : h >= 200 ? ['Sôi nổi', 'ok'] : h >= 30 ? ['Có tương tác', ''] : ['Gần như im', 'stopped']; }
+function jgHeat(g) {
+  const a = g.act; if (!a) return '<span class="muted small">Chưa đo</span>';
+  if (a.pending) return '<span class="badge paused" data-tip="Nick này mới xin vào, nhóm chưa duyệt">Đang chờ duyệt</span>';
+  const lv = jgLevel(a.heat); if (!lv) return '<span class="muted small" data-tip="Trang giới thiệu nhóm không có số liệu hoạt động (nhóm riêng tư hoặc bị ẩn)">Không có số liệu</span>';
+  return `<span class="badge ${lv[1]}" data-tip="${fmtN(a.posts_month ?? 0)} bài · ${fmtN(a.cmt_month ?? 0)} bình luận · ${fmtN(a.react_month ?? 0)} cảm xúc trong 30 ngày${a.members ? ` · ${fmtN(a.members)} thành viên` : ''}">${lv[0]}</span><div class="sub">${fmtN(a.cmt_month ?? 0)} bình luận/tháng · ${fmtN(a.posts_day ?? 0)} bài hôm nay</div>`;
+}
+// Việc hằng ngày của FB chính: 10 nhóm tương tác cao nhất chưa vào trong 2 ngày qua (nhóm vào hôm nay vẫn giữ trong danh sách, đã tích)
+function jgDaily(A, today) {
+  const gs = (A.groups || []).filter(g => g.topic !== 'khac' && (g.act?.heat ?? 0) >= 30 && !g.act.pending && jgVi(g));
+  if (!gs.length) return '';
+  const d2 = new Date(Date.now() - 2 * 864e5).toLocaleDateString('sv-SE');
+  const doneToday = g => (g.visits || []).includes(today), recent = g => (g.visits || []).some(v => v >= d2 && v !== today);
+  const pick = gs.filter(g => doneToday(g) || !recent(g)).sort((a, b) => (b.act.heat + (b.topic === 'web' ? 1e5 : 0)) - (a.act.heat + (a.topic === 'web' ? 1e5 : 0))).slice(0, 10);
+  const n = pick.filter(doneToday).length;
+  return `<div style="margin:0 20px 16px;border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;background:var(--soft)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>${I('check')} Hôm nay vào ${pick.length} nhóm này để tương tác và tìm khách</b><span class="chip ${n === pick.length ? 'ok' : ''}">${n}/${pick.length} đã vào</span></div>
+    <p class="small muted" style="margin:0 0 8px">Chỉ nhóm Việt, ưu tiên nhóm website rồi tới nhóm có nhiều bình luận thật nhất. Bấm tên nhóm là mở và tự đánh dấu đã vào. Nhóm đã vào sẽ nghỉ 2 ngày rồi mới quay lại danh sách.</p>
+    ${pick.map(g => `<div style="display:flex;gap:10px;align-items:center;padding:5px 0"><input type="checkbox" ${doneToday(g) ? 'checked' : ''} onchange="jgVisit('${esc(g.id)}',this.checked)"><a href="https://www.facebook.com/groups/${esc(g.id)}/?sorting_setting=CHRONOLOGICAL" target="_blank" onclick="jgVisit('${esc(g.id)}',true)" style="${doneToday(g) ? 'text-decoration:line-through;opacity:.6' : ''}"><b>${esc(g.name)}</b></a><span class="small muted" style="margin-left:auto;white-space:nowrap">${fmtN(g.act.cmt_month ?? 0)} bình luận/tháng · ${fmtN(g.act.posts_day ?? 0)} bài hôm nay</span></div>`).join('')}</div>`;
+}
+function jgVisit(id, on) { api('POST', '/api/joined-groups/visit', { profile: state.jg?.acc || 'default', id, on }).then(d => { state.jgData = d; jgDraw(); }).catch(e => toast(e.message)); }
+function jgMeasure(profile) { api('POST', '/api/joined-groups/measure', { profile }).then(r => { toast(`Bắt đầu đo ${r.total} nhóm, chạy ngầm, khoảng ${Math.round(r.total * 13 / 60)} phút`); jgMPoll(profile); }).catch(e => toast(e.message)); }
+function jgMeasureStop(profile) { api('POST', '/api/joined-groups/measure/stop', { profile }).then(() => toast('Sẽ dừng sau nhóm đang đo')).catch(e => toast(e.message)); }
+function jgMPoll(profile) { api('GET', '/api/joined-groups').then(j => { state.jgData = j; jgDraw(); if (j.accounts?.[profile]?.mstatus?.running && /^#\/reports/.test(location.hash)) setTimeout(() => jgMPoll(profile), 10000); }).catch(() => {}); }
+function jgDraw() { const b = $('#jgBox'); if (b) b.innerHTML = jgHtml(); }
+function jgToggle(id, radar) { api('PATCH', '/api/joined-groups/' + encodeURIComponent(id), { radar }).then(d => { state.jgData = d; jgDraw(); toast(radar ? 'Đã thêm vào Radar, lượt quét tới sẽ quét nhóm này' : 'Đã bỏ khỏi Radar'); }).catch(e => toast(e.message)); }
+function jgTopic(topic, radar) { api('POST', '/api/joined-groups/topic', { topic, radar }).then(d => { state.jgData = d; jgDraw(); toast(radar ? 'Đã thêm cả mục vào Radar' : 'Đã bỏ cả mục khỏi Radar'); }).catch(e => toast(e.message)); }
+function jgRefresh(profile) {
+  api('POST', '/api/joined-groups/refresh', { profile }).then(() => { toast(`Đang đọc danh sách nhóm của ${state.jgData?.accounts?.[profile]?.name || profile} (chạy ngầm, mất 1-2 phút)`); jgPoll(profile); }).catch(e => toast(e.message));
+}
+function jgPoll(profile) {
+  api('GET', '/api/joined-groups').then(j => { state.jgData = j; jgDraw(); const st = j.accounts?.[profile]?.status; if (st?.running && /^#\/reports/.test(location.hash)) setTimeout(() => jgPoll(profile), 3000); else if (st) toast(st.step); }).catch(() => {});
 }
 
 // ---------- tổng quan: bảng điều khiển
@@ -1554,8 +1687,13 @@ setInterval(() => {
   if (document.hidden || !/^#\/reports/.test(location.hash) || !$('#main')) return;
   const y = $('#main').scrollTop; fbReport().then(() => { $('#main').scrollTop = y; }).catch(() => {});
 }, 45000);
-// trang Bài đăng tự làm mới mỗi 30 giây — số liệu do lịch nền `do-chi-so-video` cập nhật ngầm mỗi ~20 phút,
-// trang chỉ đọc lại cache nên rẻ, không cần bấm gì (Hưng yêu cầu "mọi thứ phải tự động chứ không thủ công")
+// việc có thể được đánh dấu xong ngay trên hộp thoại nhắc của máy → quay lại app thì đọc lại danh sách
+window.addEventListener('focus', () => {
+  if (!/^#\/todo/.test(location.hash) || state.tdEd || !$('#tdWeek')) return;
+  api('GET', '/api/todos').then(l => { state.todos = l; todoDraw(); }).catch(() => {});
+});
+// trang Bài đăng tự làm mới mỗi 30 giây — YouTube do lịch nền đo qua API, TikTok chỉ đo khi bấm "Cập nhật TikTok"
+// (Hưng tắt lịch TikTok 08/10/2026); trang chỉ đọc lại cache nên rẻ
 setInterval(() => {
   if (document.hidden || !/^#\/posts/.test(location.hash) || !$('#main')) return;
   const y = $('#main').scrollTop; posts().then(() => { $('#main').scrollTop = y; }).catch(() => {});
@@ -1693,17 +1831,22 @@ function fmtPostedAt(ts) {
 }
 async function posts() {
   crumbs(['Bài đăng']);
-  const list = await api('GET', '/api/posts');
+  const [list, tk] = await Promise.all([api('GET', '/api/posts'), api('GET', '/api/posts/tiktok').catch(() => ({}))]);
   state.posts = { sort: state.posts?.sort || 'moi', ...state.posts };
+  if (state.posts.tkRunning && !tk.running) toast(tk.error ? `Cập nhật TikTok lỗi: ${tk.error}` : 'Đã cập nhật số liệu TikTok');
+  state.posts.tkRunning = !!tk.running;
+  clearTimeout(state.posts.tkTimer);
+  if (tk.running) state.posts.tkTimer = setTimeout(() => { if (/^#\/posts/.test(location.hash)) { const y = $('#main').scrollTop; posts().then(() => { $('#main').scrollTop = y; }).catch(() => {}); } }, 5000);
   const sorted = [...list].sort((a, b) => state.posts.sort === 'diem' ? postScore(b) - postScore(a) : new Date(b.created || 0) - new Date(a.created || 0));
   const totalPosted = list.filter(p => p.posted && Object.keys(p.posted).length).length;
   const totalViews = list.reduce((s, p) => s + postTotalViews(p), 0);
-  const lastAt = Math.max(0, ...list.flatMap(p => [p.stats?.tiktok?.at, p.stats?.youtube?.at].filter(Boolean)));
+  const ytAt = Math.max(0, ...list.map(p => p.stats?.youtube?.at || 0)), tkAt = Math.max(0, ...list.map(p => p.stats?.tiktok?.at || 0));
   $('#main').innerHTML = `<div class="wrap">` + pageHead('Bài đăng', `${[...new Set(list.map(p => p.series).filter(Boolean))].map(x => `"${x}"`).join(' · ') || 'Video tự động'} · ${list.length} video · ${totalPosted} đã đăng${totalViews ? ` · <b class="pTotalViews">${fmtN(totalViews)}</b> tổng lượt xem` : ''}`,
-    `<button onclick="api('POST','/api/open-path',{path:${j(list[0]?.dir ? list[0].dir.replace(/\/[^/]+$/, '') : '~/Downloads/HPBFlow/video')}})">${I('folder')} Mở thư mục</button>`) + `
+    `<button onclick="api('POST','/api/open-path',{path:${j(list[0]?.dir ? list[0].dir.replace(/\/[^/]+$/, '') : '~/Project/HPBFlow/video')}})">${I('folder')} Mở thư mục</button>`) + `
   <div class="toolbar" style="margin-bottom:14px"><div class="seg"><button class="${state.posts.sort === 'moi' ? 'on' : ''}" onclick="state.posts.sort='moi';posts()">Mới nhất</button><button class="${state.posts.sort === 'diem' ? 'on' : ''}" onclick="state.posts.sort='diem';posts()">Điểm tương tác</button></div>
-    <span class="muted small pLive" style="margin-left:auto" title="YouTube qua API chính thức (mỗi 1 phút), TikTok qua trình duyệt (mỗi 5 phút) — trang tự làm mới mỗi 30 giây, không cần bấm gì"><i class="pdot"></i>${I('refresh')} Cập nhật ${lastAt ? ago(lastAt) : 'chưa có'} · tập mới tự đăng mỗi ngày lúc 19:00</span></div>
-  <div class="pgrid">${sorted.map((p, i) => postCard(p, state.posts.sort === 'diem' ? i : null)).join('') || '<p class="empty">Chưa có tập nào. Quy trình tự động sẽ tạo tập đầu tiên vào 19:00.</p>'}</div></div>`;
+    <span class="muted small pLive" style="margin-left:auto" title="YouTube tự cập nhật qua API chính thức — trang tự làm mới mỗi 30 giây"><i class="pdot"></i>YouTube cập nhật ${ytAt ? ago(ytAt) : 'chưa có'} · TikTok ${tkAt ? ago(tkAt) : 'chưa đo'} · tập mới tự đăng mỗi ngày lúc 6:00 sáng</span>
+    <button class="sm" ${tk.running ? 'disabled' : ''} title="TikTok không tự đo (phải mở trình duyệt) — bấm khi cần xem số mới, mất khoảng 1-2 phút" onclick="api('POST','/api/posts/tiktok').then(()=>{toast('Đang đo TikTok (chạy ngầm, 1-2 phút)');posts()}).catch(e=>toast(e.message))">${I('refresh')} ${tk.running ? 'Đang đo TikTok…' : 'Cập nhật TikTok'}</button></div>
+  <div class="pgrid">${sorted.map((p, i) => postCard(p, state.posts.sort === 'diem' ? i : null)).join('') || '<p class="empty">Chưa có tập nào. Quy trình tự động sẽ tạo tập đầu tiên vào 6:00 sáng.</p>'}</div></div>`;
 }
 function postCard(p, rank) {
   const cover = p.dir ? `/api/file?path=${encodeURIComponent(p.dir + '/cover.jpg')}` : '';
@@ -1856,7 +1999,7 @@ async function settings() {
   $('#main').innerHTML = `<div class="wrap">` + pageHead('Cài đặt', 'Khởi động, nơi lưu file, dữ liệu của app và kết nối AI Agent') + settingsTabs('settings') + `
   <section class="card flush settings">
     ${row('zap', 'Khởi động cùng máy', 'Tự mở HPB Flow khi đăng nhập vào máy, để workflow và AI Agent luôn gọi được.', `<button class="switch ${s.launch_at_login ? 'on' : ''}" onclick="api('POST','/api/settings',{launch_at_login:${!s.launch_at_login}}).then(settings)"></button>`)}
-    ${row('download', 'Nơi lưu kết quả', `<code>${esc(s.output_dir)}</code>`, `<button class="sm" onclick="api('POST','/api/choose-folder').then(r=>r.path&&api('POST','/api/settings',{output_dir:r.path}).then(settings))">Chọn thư mục</button><button class="sm" onclick="api('POST','/api/settings',{output_dir:'~/Downloads/HPBFlow'}).then(settings)">Đặt lại</button><button class="sm" onclick="api('POST','/api/open-path',{path:${j(s.output_dir)}})">Mở</button>`)}
+    ${row('download', 'Nơi lưu kết quả', `<code>${esc(s.output_dir)}</code>`, `<button class="sm" onclick="api('POST','/api/choose-folder').then(r=>r.path&&api('POST','/api/settings',{output_dir:r.path}).then(settings))">Chọn thư mục</button><button class="sm" onclick="api('POST','/api/settings',{output_dir:'~/Project/HPBFlow'}).then(settings)">Đặt lại</button><button class="sm" onclick="api('POST','/api/open-path',{path:${j(s.output_dir)}})">Mở</button>`)}
     ${row('users', 'Nơi lưu hồ sơ trình duyệt', `Dữ liệu đăng nhập của từng hồ sơ: <code>${esc(s.profiles_dir)}</code>`, `<button class="sm" onclick="api('POST','/api/open-path',{path:${j(s.profiles_dir)}})">Mở</button>`)}
     ${row('shield', 'Proxy', 'Gắn proxy cho hồ sơ trình duyệt. Mục này ẩn khỏi menu khi chưa có proxy nào.', `<button class="sm" onclick="nav('#/proxies')">Mở</button>`)}
     ${row('monitor', 'Engine trình duyệt', 'Trên Mac chỉ dùng Google Chrome (Chrome CDP); các engine khác chỉ để tham khảo.', `<button class="sm" onclick="nav('#/engines')">Xem</button>`)}

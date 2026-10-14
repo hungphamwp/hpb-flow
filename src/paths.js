@@ -15,7 +15,7 @@ export const PORT = Number(process.env.HPBFLOW_PORT || 4719);
 export const HOST = process.env.HPBFLOW_HOST || '127.0.0.1';
 
 // Thư mục kết quả có thể đổi trong Cài đặt → dùng live binding
-export let OUTPUT_DIR = path.join(os.homedir(), 'Downloads', 'HPBFlow');
+export let OUTPUT_DIR = path.join(os.homedir(), 'Project', 'HPBFlow');
 export function setOutputDir(dir) {
   OUTPUT_DIR = dir.replace(/^~(?=\/|$)/, os.homedir());
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
